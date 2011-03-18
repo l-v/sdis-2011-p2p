@@ -6,8 +6,11 @@ import java.util.*;
 
 public class MulticastP2P {
 
-	MulticastSocket sockData;
-	MulticastSocket sockControl;
+	//MulticastSocket sockData; comented because it has to be createad every single thread for concurrent access
+	//MulticastSocket sockControl;
+	String currentSearchID; // Saves the current search id. We should not answer searches from ourselves.
+	InetSocketAddress controlAddr; // IP and Port for control
+	InetSocketAddress dataAddr; // IP and port for data
 	
 	private static Vector<fileStruct> fileArray = new Vector<fileStruct>();
 	
@@ -56,42 +59,75 @@ public class MulticastP2P {
 		}
 		*/
 		
-	}
-	
-	/**
-	 * Joins the multicast group
-	 * 
-	 * @param multicastAddress Multicast Group IP Address
-	 * @param controlPort
-	 * @param dataPort 
-	 */
-	private void joinGroup(String multicastAddress, int controlPort, int dataPort){
-
+		/* //Novo teste
+		MulticastP2P p2p = new MulticastP2P();
+		
+		p2p.controlAddr = new InetSocketAddress("224.0.2.10",8967);
+		p2p.dataAddr = new InetSocketAddress("224.0.2.10",8966);
+		
 		try {
-    	
-    		sockControl = new MulticastSocket(controlPort);
-    		sockControl.joinGroup(InetAddress.getByName(multicastAddress));
-			sockControl.setTimeToLive(1); // TODO ?
-			
-			sockData = new MulticastSocket(dataPort);
-    		sockData.joinGroup(InetAddress.getByName(multicastAddress));
-			sockData.setTimeToLive(1); // TODO ?
-			
-    	
-    	} catch (IOException e) {
+			p2p.search("teste");
+		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		*/
+	}
+	
+	/**
+	 * Joins a multicast group and returns a Multicast socket
+	 * 
+	 * @param multicastAddress Multicast Group IP Address
+	 * @param port 
+	 * @throws IOException 
+	 */
+	private MulticastSocket joinGroup(InetSocketAddress addr) throws IOException{
+
+		MulticastSocket mSocket = null;
+
+		//controlAddr = new InetSocketAddress(InetAddress.getByName(multicastAddress),controlPort);
+		//dataAddr = new InetSocketAddress(InetAddress.getByName(multicastAddress),dataPort);
+		
+		mSocket = new MulticastSocket(addr.getPort());
+		mSocket.joinGroup(addr.getAddress());
+		mSocket.setTimeToLive(1); // TODO ?
+
+		return mSocket;
+
 		
 	}
 	
 	/**
 	 * Sends the searchString to the group and listens for results(?)
 	 * @param searchString
+	 * @throws IOException 
+	 * @throws SocketException 
 	 */
-	private void search(String searchString){
+	private void search(String keywordList) throws IOException{
 		
-		sockControl.
+		currentSearchID = "id12345679"; // TODO Gerar dinamicamente
+		
+		/* Create a new MulticastSocket so we can concurrently read and write
+		 * from the multicast group.
+		 */
+		MulticastSocket mSocket = joinGroup(controlAddr);
+
+		String searchString = "SEARCH" + " " + currentSearchID + " " 
+								+ keywordList; // Generates search string.
+		
+		DatagramPacket searchPacket = null;
+		
+		// Creates the searchPacket and sends it.
+		searchPacket = new DatagramPacket(
+				searchString.getBytes(), searchString.length(),controlAddr);
+		
+		mSocket.send(searchPacket);
+		
+		byte[] buf = new byte[512];
+		DatagramPacket receivePacket = new DatagramPacket(buf,512);
+		mSocket.receive(receivePacket);
+		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
+		System.out.println(received);
 		
 	}
 	
