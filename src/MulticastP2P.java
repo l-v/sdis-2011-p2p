@@ -6,8 +6,8 @@ import java.util.*;
 
 public class MulticastP2P {
 
-	private MulticastSocket sockData;
-	private MulticastSocket sockControl;
+	MulticastSocket sockData;
+	MulticastSocket sockControl;
 	
 	private static Vector<fileStruct> fileArray = new Vector<fileStruct>();
 	
@@ -91,6 +91,7 @@ public class MulticastP2P {
 	 */
 	private void search(String searchString){
 		
+		sockControl.
 		
 	}
 	
