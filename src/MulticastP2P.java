@@ -89,15 +89,17 @@ public class MulticastP2P {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		*/
-		/*
+		
+		
 		for (int i = 0; i!=fileArray.size(); i++) {
 			fileArray.get(i).printStruct();
 		}
-		*/
-		 
 
-		 //Novo teste
+		 System.out.println("Presente? " + p2p.hasFile("scraps"));
+		 */
+		
+		
+		//Novo teste
 		/*
 		p2p.controlAddr = new InetSocketAddress("224.0.2.10",8967);
 		p2p.dataAddr = new InetSocketAddress("224.0.2.10",8966);
@@ -108,9 +110,7 @@ public class MulticastP2P {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		 */
-		
-		
+*/
 	}
 
 
@@ -179,8 +179,32 @@ public class MulticastP2P {
 
 	}
 
+	
+	/***
+	 * Constructs the FOUND message
+	 * 
+	 * @param searchID
+	 * @param keywordList
+	 * @return String: NULL if the file is not found; FOUND message otherwise. 
+	 */
+	private String foundMessage(String searchID, String keywordList) {
+		
+		int fIndex = hasFile(keywordList);
+			
+		if (fIndex == -1)
+			return "NULL";
+		
+		fileStruct file = fileArray.get(fIndex);
+		String foundString = "FOUND " + searchID + " " + file.sha + " " + file.fileSize + " " + file.fileName;
+	
+		return foundString;
+	}
+	
+	
+	
 	/**
-	 * Searches directory files and indexes file info in fileIndex. 
+	 * Searches directory files and indexes file info in fileIndex.
+	 *  
 	 * @param directory: location of the files to be indexed.
 	 * @param chunkSize: default size of the chunks in Bytes.
 	 * @throws IOException 
@@ -206,14 +230,27 @@ public class MulticastP2P {
 					e.printStackTrace();
 				}
 				
-				
-				
 				fileStruct newFile = new fileStruct(hashString, listOfFiles[i].getName(), size, numChunks);  
 				fileArray.add(newFile);  
 			} 
 		}
 	}
-
+ 
+	/***
+	 * Verifica se possui o ficheiro procurado
+	 * 
+	 * @param keywordList
+	 * @return int: indice no ficheiro no fileArray; -1 caso nao encontre o ficheiro.
+	 */
+	private int hasFile(String keywordList) {
+		
+		for (int i=0; i!=fileArray.size(); i++) {
+			if (fileArray.get(i).fileName.toLowerCase().contains(keywordList.toLowerCase()))
+				return i;
+		}
+		
+		return -1;	
+	}
 
 
 	/***
