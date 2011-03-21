@@ -273,14 +273,14 @@ public class MulticastP2P {
 		FileInputStream file = new FileInputStream(fileReq.completePath);
 		long fLength = fileReq.fileSize;
 		long bytesRead = 0;
-		int i=0;
+
 		while (bytesRead != fLength) {
 			
 			byte[] fChunk =  new byte[1024]; 
 			long bytes = file.read(fChunk); 
 			bytesRead += bytes; 
 			
-			chunkVector.add(fChunk); i++;
+			chunkVector.add(fChunk);
 		}
 		
 		if (chunkVector.size() != fileReq.totalChunks) {
@@ -288,7 +288,7 @@ public class MulticastP2P {
 		}
 		/*
 		System.out.println("File: " + fileReq.fileName);
-		System.out.println("fLength: " + fLength + "\ti: " + i);
+		System.out.println("fLength: " + fLength);
 		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
 		*/
 		return chunkVector;
