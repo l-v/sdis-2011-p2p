@@ -39,12 +39,14 @@ public class MulticastP2P {
 		String fileName;
 		long fileSize;
 		long totalChunks;
+		String completePath;
 
-		fileStruct(String hash, String name, long size, long chunks) {
+		fileStruct(String hash, String name, long size, long chunks, String path) {
 			sha = hash;
 			fileName = name;
 			fileSize = size;
 			totalChunks = chunks;
+			completePath = path;
 		}
 
 		void printStruct() {
@@ -85,18 +87,23 @@ public class MulticastP2P {
 		/*
 		try {
 			p2p.indexFiles("/home/liliana/Documents", CHUNKSIZE);
+
+			
+			
+			for (int i = 0; i!=fileArray.size(); i++) {
+				fileArray.get(i).printStruct();
+			}
+	
+			 System.out.println("Presente? " + p2p.hasFile("scraps"));
+			 System.out.println("Path: " + fileArray.get( p2p.hasFile("scraps") ).completePath + "\n");
+			 
+			 Vector<byte[]> chunkResult = getChunks(fileArray.get( p2p.hasFile("boletim.html")));
+			 
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		
-		for (int i = 0; i!=fileArray.size(); i++) {
-			fileArray.get(i).printStruct();
-		}
-
-		 System.out.println("Presente? " + p2p.hasFile("scraps"));
-		 */
+		*/
 		
 		
 		//Novo teste
@@ -230,7 +237,7 @@ public class MulticastP2P {
 					e.printStackTrace();
 				}
 				
-				fileStruct newFile = new fileStruct(hashString, listOfFiles[i].getName(), size, numChunks);  
+				fileStruct newFile = new fileStruct(hashString, listOfFiles[i].getName(), size, numChunks, listOfFiles[i].getAbsolutePath());  
 				fileArray.add(newFile);  
 			} 
 		}
@@ -251,6 +258,41 @@ public class MulticastP2P {
 		
 		return -1;	
 	}
+	
+	/***
+	 * Divide um ficheiro em chunks.
+	 * 
+	 * @param fileReq: ficheiro pedido
+	 * @return Vector<byte>: vector com os varios chunks do ficheiro.
+	 * @throws IOException
+	 */
+	private static Vector<byte[]> getChunks(fileStruct fileReq) throws IOException {
+		
+		Vector<byte[]> chunkVector = new Vector<byte[]>();
+	
+		FileInputStream file = new FileInputStream(fileReq.completePath);
+		long fLength = fileReq.fileSize;
+		long bytesRead = 0;
+		int i=0;
+		while (bytesRead != fLength) {
+			
+			byte[] fChunk =  new byte[1024]; 
+			long bytes = file.read(fChunk); 
+			bytesRead += bytes; 
+			
+			chunkVector.add(fChunk); i++;
+		}
+		
+		if (chunkVector.size() != fileReq.totalChunks) {
+			System.out.println("\nWarning: number of chunks generated is not the expected.");
+		}
+		/*
+		System.out.println("File: " + fileReq.fileName);
+		System.out.println("fLength: " + fLength + "\ti: " + i);
+		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
+		*/
+		return chunkVector;
+	}
 
 
 	/***
@@ -261,10 +303,10 @@ public class MulticastP2P {
 	 * @throws NoSuchAlgorithmException
 	 * @throws IOException
 	 */
-	public String SHACheckSum(String filePath) throws NoSuchAlgorithmException, IOException{
+	public String SHACheckSum(String fileName) throws NoSuchAlgorithmException, IOException{
 
 		MessageDigest md = MessageDigest.getInstance("SHA-256");	 
-		FileInputStream fis = new FileInputStream(filePath);
+		FileInputStream fis = new FileInputStream(fileName);
 		
 		
 		byte[] dataBytes = new byte[1024];
