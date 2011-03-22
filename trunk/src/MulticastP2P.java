@@ -24,6 +24,8 @@ public class MulticastP2P {
 	InetSocketAddress controlAddr; // IP and Port for control
 	InetSocketAddress dataAddr; // IP and port for data
 	
+	private  Vector<fileStruct> fileArray;
+	
 	/*
 	 * Stores the results from the current search
 	 */
@@ -54,12 +56,22 @@ public class MulticastP2P {
 				return 1;
 			}
 		}
+		@Override
+		public String toString(){
+			Iterator<SearchResult> it = results.iterator();
+			int  i = 0;
+			String s = "";
+			while(it.hasNext()){
+				s += ( i + "\t" + it.next().toString() + "\n");
+				i++;
+			}
+			return s;
+		}
 		
 		
 	}
 	
 
-	private static Vector<fileStruct> fileArray = new Vector<fileStruct>();
 
 	/**
 	 * Stores information about files
@@ -150,7 +162,11 @@ public class MulticastP2P {
 		private MulticastP2P getOuterType() {
 			return MulticastP2P.this;
 		}
-		
+
+		@Override
+		public String toString() {
+			return sha + " | " + filename + " | " + filesize + " | " + peers;
+		}
 		
 	}
 
@@ -158,15 +174,66 @@ public class MulticastP2P {
 	public MulticastP2P(){
 		randomGenerator = new Random(); // Generates a random number sequence
 		currentSearchResults = null; // only created when after a search
+		fileArray = new Vector<fileStruct>();
 	}
 
 
 	/**
 	 * @param args
+	 * 
+	 * args = <>
 	 */
-	public static void main(String[] args) {
+	
+	//TODO -p Path -i IP -c CONTROLPORT -d DATAPORT
+	
+	public static void main(String[] args){
 
-		MulticastP2P p2p = new MulticastP2P();
+		final MulticastP2P p2p = new MulticastP2P();
+		
+		// Index files directory
+		try {
+			p2p.indexFiles("./files/", CHUNKSIZE); //TODO verificar se dir existe
+	 
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		// Sets udp group address
+		p2p.controlAddr = new InetSocketAddress("224.0.2.10",8967); //TODO
+		p2p.dataAddr = new InetSocketAddress("224.0.2.10",8966);
+		
+		
+		new Thread() {
+			public void run() {			
+				try {
+					for(;;){
+						p2p.search();
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}.start();
+		
+		new Thread() {
+			public void run() {			
+				try {
+					p2p.searchReply();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}.start();
+		
+		
+		
+		// TODO Lançar thread resposta
+		
+		// TODO Lançar thread de pesquisa
+		
 		
 		/* testes_temp*/
 		/*
@@ -222,7 +289,7 @@ public class MulticastP2P {
 
 		mSocket = new MulticastSocket(addr.getPort());
 		mSocket.joinGroup(addr.getAddress());
-		mSocket.setTimeToLive(1); // TODO ?
+		mSocket.setTimeToLive(5); // TODO ?
 
 		return mSocket;
 
@@ -238,14 +305,20 @@ public class MulticastP2P {
 
 	/**
 	 * Sends the searchString to the group and listens for results(?)
-	 * @param searchString
+	 * @throws IOException 
+
 	 * @throws IOException 
 	 * @throws SocketException 
 	 */
-	private void search(String keywordList) throws IOException{
+	void search() throws IOException{
 
 		currentSearchID = genSearchID();
 		currentSearchResults = new SearchResults();
+		
+		Scanner in = new Scanner(System.in);
+		
+		System.out.println("Search:");
+		String keywordList = in.nextLine();
 
 		/* Create a new MulticastSocket so we can concurrently read and write
 		 * from the multicast group.
@@ -254,6 +327,7 @@ public class MulticastP2P {
 
 		String searchString = "SEARCH" + " " + currentSearchID + " " 
 		+ keywordList; // Generates search string.
+		System.out.println(searchString);
 
 		DatagramPacket searchPacket = null;
 
@@ -275,10 +349,9 @@ public class MulticastP2P {
 			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 			// Splitting the answer in tokens
 			StringTokenizer st = new StringTokenizer(received);
+			//System.out.println(received);
 			
 			if(st.nextToken().equalsIgnoreCase("FOUND")){ // Only parses FOUNDs
-				System.out.println(received);
-
 				if (st.nextToken().equals(currentSearchID)){ // Compares to currentSearchID
 					String receivedSha = st.nextToken();
 					long receivedSize = Long.parseLong(st.nextToken());
@@ -290,6 +363,8 @@ public class MulticastP2P {
 					}
 					// Inserts the new search result in currentSearchResults.
 					currentSearchResults.insertResult(receivedSha, receivedSize, receivedFilename);
+
+					System.out.println(currentSearchResults.toString());
 				}
 				
 			}
@@ -298,24 +373,18 @@ public class MulticastP2P {
 
 	}
 
+
 	
 	/***
 	 * Constructs the FOUND message
 	 * 
 	 * @param searchID
-	 * @param keywordList
+	 * @param file
 	 * @return String: NULL if the file is not found; FOUND message otherwise. 
 	 */
-	private String foundMessage(String searchID, String keywordList) {
+	private String foundMessage(fileStruct file, String searchID) {
 		
-		int fIndex = hasFile(keywordList);
-			
-		if (fIndex == -1)
-			return "NULL";
-		
-		fileStruct file = fileArray.get(fIndex);
 		String foundString = "FOUND " + searchID + " " + file.sha + " " + file.fileSize + " " + file.fileName;
-	
 		return foundString;
 	}
 	
@@ -355,21 +424,7 @@ public class MulticastP2P {
 		}
 	}
  
-	/***
-	 * Verifica se possui o ficheiro procurado
-	 * 
-	 * @param keywordList
-	 * @return int: indice no ficheiro no fileArray; -1 caso nao encontre o ficheiro.
-	 */
-	private int hasFile(String keywordList) {
-		
-		for (int i=0; i!=fileArray.size(); i++) {
-			if (fileArray.get(i).fileName.toLowerCase().contains(keywordList.toLowerCase()))
-				return i;
-		}
-		
-		return -1;	
-	}
+
 	
 	/***
 	 * Divide um ficheiro em chunks.
@@ -448,4 +503,48 @@ public class MulticastP2P {
 		String hashString = sb.toString();
 		return hashString;
 	} 
+	
+	
+	void searchReply() throws IOException{
+		
+		// Joins multicast group and creates socket
+		MulticastSocket mSocket = joinGroup(controlAddr);
+		
+		byte[] buf = new byte[512];
+		DatagramPacket receivePacket = new DatagramPacket(buf,512);
+		mSocket.receive(receivePacket);
+		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
+		
+		StringTokenizer st = new StringTokenizer(received);
+		
+		if(st.nextToken().equalsIgnoreCase("SEARCH")){ // Only parses SEARCHs
+			
+			String receivedSearchID = st.nextToken();
+			System.out.println("RECEIVED: "+ received);
+			
+			if (!receivedSearchID.equals(currentSearchID)){ // Compares to currentSearchID
+				
+				// now to get the filename
+				String receivedKeywords = st.nextToken();
+				while(st.hasMoreTokens()){
+					receivedKeywords = receivedKeywords + " " + st.nextToken();
+				}
+				
+				// We search for the keywords
+				for (int i=0; i!=fileArray.size(); i++) {
+					fileStruct fs = fileArray.get(i);
+					if (fs.fileName.toLowerCase().contains(receivedKeywords.toLowerCase())){
+						String answer = foundMessage(fs, receivedSearchID); // Creates the Answer
+						DatagramPacket answerPacket = new DatagramPacket(
+								answer.getBytes(), answer.length(),controlAddr);
+						mSocket.send(answerPacket);						
+						
+					}
+				}
+			
+			}
+		}
+		
+	}
+	
 }
