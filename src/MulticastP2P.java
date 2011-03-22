@@ -15,11 +15,49 @@ public class MulticastP2P {
 
 	Random randomGenerator; // stores the Random Number Generator
 
+	SearchResults currentSearchResults; // stores the results from the current search
+	
 	//MulticastSocket sockData; comented because it has to be createad every single thread for concurrent access
 	//MulticastSocket sockControl;
 	String currentSearchID; // Saves the current search id. We should not answer searches from ourselves.
+	
 	InetSocketAddress controlAddr; // IP and Port for control
 	InetSocketAddress dataAddr; // IP and port for data
+	
+	/*
+	 * Stores the results from the current search
+	 */
+	private class SearchResults{
+		
+		Vector<SearchResult> results;
+		SearchResults(){
+			results = new Vector<SearchResult>();
+		}
+		
+		/**
+		 * Inserts a search result and returns the number of peers that have that file
+		 * @param sha
+		 * @param filesize
+		 * @param filename
+		 * @return
+		 */
+		int insertResult(String sha, long filesize, String filename){
+			SearchResult sr = new SearchResult(sha,filesize,filename);
+			
+			int resultIndex = results.indexOf(sr);
+			if(resultIndex != -1){ // if Object exits
+				results.elementAt(resultIndex).addPeer();
+				return results.elementAt(resultIndex).peers;
+			}
+			else{
+				results.add(sr);
+				return 1;
+			}
+		}
+		
+		
+	}
+	
 
 	private static Vector<fileStruct> fileArray = new Vector<fileStruct>();
 
@@ -61,18 +99,65 @@ public class MulticastP2P {
 	 * Saves a search result
 	 */
 	private class SearchResult {
-		String searchID;
 		String sha;
 		long filesize;
 		String filename;
 		int peers; // Number of peers that have the file
+		
+		/**
+		 * Constructor
+		 */
+		SearchResult(String sha, long filesize, String filename){
+			this.sha = sha;
+			this.filesize = filesize;
+			this.filename = filename;
+			peers = 1;
+		}
+		
+		/**
+		 * Adds a peer
+		 */
+		public void addPeer(){
+			this.peers++;
+		}
+		
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + getOuterType().hashCode();
+			result = prime * result + ((sha == null) ? 0 : sha.hashCode());
+			return result;
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			SearchResult other = (SearchResult) obj;
+			if (!getOuterType().equals(other.getOuterType()))
+				return false;
+			if (sha == null) {
+				if (other.sha != null)
+					return false;
+			} else if (!sha.equals(other.sha))
+				return false;
+			return true;
+		}
+		private MulticastP2P getOuterType() {
+			return MulticastP2P.this;
+		}
+		
+		
 	}
 
 
 	public MulticastP2P(){
-
 		randomGenerator = new Random(); // Generates a random number sequence
-
+		currentSearchResults = null; // only created when after a search
 	}
 
 
@@ -160,6 +245,7 @@ public class MulticastP2P {
 	private void search(String keywordList) throws IOException{
 
 		currentSearchID = genSearchID();
+		currentSearchResults = new SearchResults();
 
 		/* Create a new MulticastSocket so we can concurrently read and write
 		 * from the multicast group.
@@ -177,12 +263,38 @@ public class MulticastP2P {
 
 		mSocket.send(searchPacket);
 
-		// TODO While para guardar e apresentar resultados
-		byte[] buf = new byte[512];
-		DatagramPacket receivePacket = new DatagramPacket(buf,512);
-		mSocket.receive(receivePacket);
-		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
-		System.out.println(received);
+		// TODO While para ler e apresentar resultados
+		
+		// TODO While para receber e filtrar resultados
+		boolean searchON = true;
+		
+		while (searchON){ //TODO!!!!!!!
+			byte[] buf = new byte[512];
+			DatagramPacket receivePacket = new DatagramPacket(buf,512);
+			mSocket.receive(receivePacket);
+			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
+			// Splitting the answer in tokens
+			StringTokenizer st = new StringTokenizer(received);
+			
+			if(st.nextToken().equalsIgnoreCase("FOUND")){ // Only parses FOUNDs
+				System.out.println(received);
+
+				if (st.nextToken().equals(currentSearchID)){ // Compares to currentSearchID
+					String receivedSha = st.nextToken();
+					long receivedSize = Long.parseLong(st.nextToken());
+					
+					// now to get the filename
+					String receivedFilename = st.nextToken();
+					while(st.hasMoreTokens()){
+						receivedFilename = receivedFilename + " " + st.nextToken();
+					}
+					// Inserts the new search result in currentSearchResults.
+					currentSearchResults.insertResult(receivedSha, receivedSize, receivedFilename);
+				}
+				
+			}
+		}
+		
 
 	}
 
