@@ -220,7 +220,9 @@ public class MulticastP2P {
 		new Thread() {
 			public void run() {			
 				try {
-					p2p.searchReply();
+					while(true) {
+						p2p.searchReply();
+					}
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
