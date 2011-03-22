@@ -190,6 +190,15 @@ public class MulticastP2P {
 
 		final MulticastP2P p2p = new MulticastP2P();
 		
+		/* Check that native byte order is little_endian */
+		/* 
+		 * ByteBuffer.order(ByteOrder bo)
+         *      Modifies this buffer's byte order.
+		 */
+		 // System.out.println((java.nio.ByteOrder.nativeOrder().toString()));
+		 
+
+
 		// Index files directory
 		try {
 			p2p.indexFiles("./files/", CHUNKSIZE); //TODO verificar se dir existe
@@ -204,6 +213,7 @@ public class MulticastP2P {
 		p2p.dataAddr = new InetSocketAddress("224.0.2.10",8966);
 		
 		
+		// Lançar thread pesquisa
 		new Thread() {
 			public void run() {			
 				try {
@@ -217,6 +227,7 @@ public class MulticastP2P {
 			}
 		}.start();
 		
+		// Lançar thread resposta
 		new Thread() {
 			public void run() {			
 				try {
@@ -230,11 +241,19 @@ public class MulticastP2P {
 			}
 		}.start();
 		
-		
-		
-		// TODO Lançar thread resposta
-		
-		// TODO Lançar thread de pesquisa
+		// Lancar thread de envio do ficheiro
+		new Thread() {
+			public void run() {
+				while (true) {
+					try {
+						p2p.sendFile();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+		};		
 		
 		
 		/* testes_temp*/
@@ -242,7 +261,8 @@ public class MulticastP2P {
 		try {
 			p2p.indexFiles("/home/liliana/Documents", CHUNKSIZE);
 
-			
+			System.out.println(p2p.intToByte(12));
+			System.out.println("\n"+p2p.byteToInt(p2p.intToByte(999999999)));
 			
 			for (int i = 0; i!=fileArray.size(); i++) {
 				fileArray.get(i).printStruct();
@@ -426,6 +446,26 @@ public class MulticastP2P {
 		}
 	}
  
+	
+	private byte[] intToByte(int integer) {
+        byte[] byteValue =  {
+                (byte)(integer >>> 24),
+                (byte)(integer >>> 16),
+                (byte)(integer >>> 8),
+                (byte)integer};
+        
+        return byteValue;
+	}
+	
+	private int byteToInt(byte[] byteValue) {
+		int integerValue = (byteValue[0] << 24)
+						+ ((byteValue[1] & 0xFF) << 16) 
+						+ ((byteValue[2] & 0xFF) << 8) 
+						+ (byteValue[3] & 0xFF);
+		
+		return integerValue;
+	}
+
 
 	
 	/***
@@ -435,21 +475,35 @@ public class MulticastP2P {
 	 * @return Vector<byte>: vector com os varios chunks do ficheiro.
 	 * @throws IOException
 	 */
-	private static Vector<byte[]> getChunks(fileStruct fileReq) throws IOException {
+	private Vector<byte[]> getChunks(fileStruct fileReq) throws IOException {
 		
 		Vector<byte[]> chunkVector = new Vector<byte[]>();
 	
 		FileInputStream file = new FileInputStream(fileReq.completePath);
 		long fLength = fileReq.fileSize;
 		long bytesRead = 0;
+		int chunkCounter = 0;  // TODO check if INT chunk counter is adequated
 
 		while (bytesRead != fLength) {
 			
 			byte[] fChunk =  new byte[1024]; 
-			long bytes = file.read(fChunk); 
+			long bytes = file.read(fChunk);  
 			bytesRead += bytes; 
 			
+			
+			/* add chunk header */
+			byte[] fileID = new byte[256];
+			byte[] chunkNumber = new byte[256];
+			
+			fileID = fileReq.sha.getBytes();
+			chunkNumber = intToByte(chunkCounter); 
+			
+			//TODO find a way to 'concatenate' byte arrays efficiently
+			
+			
+			
 			chunkVector.add(fChunk);
+			chunkCounter++;
 		}
 		
 		if (chunkVector.size() != fileReq.totalChunks) {
@@ -462,6 +516,8 @@ public class MulticastP2P {
 		*/
 		return chunkVector;
 	}
+	
+
 
 
 	/***
@@ -547,6 +603,47 @@ public class MulticastP2P {
 			}
 		}
 		
+	}
+	
+	
+	void sendFile() throws IOException {
+		
+		// Joins multicast group and creates socket
+		MulticastSocket mSocket = joinGroup(controlAddr);
+	
+		byte[] buf = new byte[512];
+		DatagramPacket receivePacket = new DatagramPacket(buf,512);
+		mSocket.receive(receivePacket);
+		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
+	
+		StringTokenizer st = new StringTokenizer(received);
+		System.out.println("RECEIVED GET: "+ received);
+		
+		if(st.nextToken().equalsIgnoreCase("GET")){ // Only parses GETs
+			
+			
+			// Launch send thread for each GET detected // TODO and test
+			new Thread() {
+				public void run() {
+					
+					/*
+					String fileID = st.nextToken();
+					
+					
+					// get chunk numbers
+					String chunks = st.nextToken();
+					System.out.println("chunks requested: " + chunks);
+					*/
+					
+					/* chunks format: a-b; a; a,b,c,d*/ // TODO
+					
+				}
+			};		
+	
+			
+		}
+		
+	
 	}
 	
 }
