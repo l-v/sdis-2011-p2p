@@ -525,8 +525,8 @@ public class MulticastP2P {
 		int chunkCounter = 0;  // TODO check if INT chunk counter is adequated
 
 		while (bytesRead != fLength) {
-			
-			byte[] fChunk =  new byte[1024]; 
+			// TODO falta testar
+			byte[] fChunk =  new byte[CHUNKSIZE]; 
 			long bytes = file.read(fChunk);  
 			bytesRead += bytes; 
 			
@@ -538,11 +538,18 @@ public class MulticastP2P {
 			fileID = fileReq.sha.getBytes();
 			chunkNumber = intToByte(chunkCounter); 
 			
-			//TODO find a way to 'concatenate' byte arrays efficiently
+			/* concatenate byte arrays with header */
+			byte[] header = new byte[512];
+			System.arraycopy(fileID, 0, header, 0, 256);
+			System.arraycopy(chunkNumber, 0, header, 256, 256);
 			
 			
+			byte[] finalChunk = new byte[512 + CHUNKSIZE];
+			System.arraycopy(header, 0, finalChunk, 0, 512);
+			System.arraycopy(fChunk, 0, finalChunk, 512, fChunk.length);
 			
-			chunkVector.add(fChunk);
+			/* add chunk to vector */
+			chunkVector.add(finalChunk);
 			chunkCounter++;
 		}
 		
