@@ -719,11 +719,11 @@ public class MulticastP2P {
 	 * @param chunkNumbers
 	 * @throws IOException
 	 */
-	void sendChunks(String sha, Vector<Long> chunkNumbers) throws IOException { // TODO testing
+	void sendChunks(String sha, Vector<Long> cNumbers) throws IOException { // TODO testing
 		
 		fileStruct fReq= getFileByHash(sha);
 		Vector<byte[]> chunkVector= getChunks(fReq);
-		
+		Vector<Long> chunkNumbers = cNumbers;
 		
 		// Joins multicast group and creates socket
 		MulticastSocket mSocket = joinGroup(dataAddr);
@@ -732,18 +732,19 @@ public class MulticastP2P {
 		Random randGenerator = new Random();
 		
 		
-		while(!chunkVector.isEmpty()) {
+		while(!chunkNumbers.isEmpty()) {
 			
-			int randChunk = randGenerator.nextInt(chunkVector.size()); //TODO test of int/long doesn't give problems
-			byte[] chunk = chunkVector.get(randChunk);
+			int randChunk = randGenerator.nextInt(chunkNumbers.size()); //TODO test of int/long doesn't give problems
+			
+			long chunkChosen = chunkNumbers.get(randChunk);
+			byte[] chunk = chunkVector.get((int)chunkChosen);
 			
 			sendPacket = new DatagramPacket(
 					chunk, chunk.length,dataAddr);
 
 			mSocket.send(sendPacket);
-			chunkVector.remove(randChunk);
+			chunkNumbers.remove(randChunk);
 		}
-	
 	}
 	
 	/**
