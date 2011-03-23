@@ -231,9 +231,7 @@ public class MulticastP2P {
 		new Thread() {
 			public void run() {			
 				try {
-					while(true) {
-						p2p.searchReply();
-					}
+					p2p.searchReply();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -244,13 +242,13 @@ public class MulticastP2P {
 		// Lancar thread de envio do ficheiro
 		new Thread() {
 			public void run() {
-				while (true) {
-					try {
+				try {
+					while (true) {
 						p2p.sendFile();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
 					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
 			}
 		};		
@@ -445,8 +443,31 @@ public class MulticastP2P {
 			} 
 		}
 	}
- 
 	
+	/***
+	 * Searches file array by hash value (sha)
+	 * 
+	 * @param sha
+	 * @return
+	 */
+	private fileStruct getFileByHash(String sha) {
+		
+		for (int i=0; i!=fileArray.size(); i++) {
+			fileStruct file = fileArray.get(i);
+			
+			if(file.sha.equals(sha))
+				return file;
+		}
+		
+		return null;
+	}
+ 
+	/***
+	 * Converts integer values to byte[].
+	 * 
+	 * @param integer
+	 * @return 
+	 */
 	private byte[] intToByte(int integer) {
         byte[] byteValue =  {
                 (byte)(integer >>> 24),
@@ -457,6 +478,12 @@ public class MulticastP2P {
         return byteValue;
 	}
 	
+	/***
+	 * Converts byte[] values to integer. 
+	 * 
+	 * @param byteValue
+	 * @return 
+	 */
 	private int byteToInt(byte[] byteValue) {
 		int integerValue = (byteValue[0] << 24)
 						+ ((byteValue[1] & 0xFF) << 16) 
@@ -469,7 +496,7 @@ public class MulticastP2P {
 
 	
 	/***
-	 * Divide um ficheiro em chunks.
+	 * Divide um ficheiro em chunks. (chunks devem ser armazenados de forma ORDENADA!)
 	 * 
 	 * @param fileReq: ficheiro pedido
 	 * @return Vector<byte>: vector com os varios chunks do ficheiro.
@@ -564,45 +591,46 @@ public class MulticastP2P {
 	
 	
 	void searchReply() throws IOException{
-		
+
 		// Joins multicast group and creates socket
 		MulticastSocket mSocket = joinGroup(controlAddr);
-		
+
 		byte[] buf = new byte[512];
-		DatagramPacket receivePacket = new DatagramPacket(buf,512);
-		mSocket.receive(receivePacket);
-		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
-		
-		StringTokenizer st = new StringTokenizer(received);
-		
-		if(st.nextToken().equalsIgnoreCase("SEARCH")){ // Only parses SEARCHs
-			
-			String receivedSearchID = st.nextToken();
-			System.out.println("RECEIVED: "+ received);
-			
-			if (!receivedSearchID.equals(currentSearchID)){ // Compares to currentSearchID
-				
-				// now to get the filename
-				String receivedKeywords = st.nextToken();
-				while(st.hasMoreTokens()){
-					receivedKeywords = receivedKeywords + " " + st.nextToken();
-				}
-				
-				// We search for the keywords
-				for (int i=0; i!=fileArray.size(); i++) {
-					fileStruct fs = fileArray.get(i);
-					if (fs.fileName.toLowerCase().contains(receivedKeywords.toLowerCase())){
-						String answer = foundMessage(fs, receivedSearchID); // Creates the Answer
-						DatagramPacket answerPacket = new DatagramPacket(
-								answer.getBytes(), answer.length(),controlAddr);
-						mSocket.send(answerPacket);						
-						
+
+		while(true) {
+			DatagramPacket receivePacket = new DatagramPacket(buf,512);
+			mSocket.receive(receivePacket);
+			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
+
+			StringTokenizer st = new StringTokenizer(received);
+
+			if(st.nextToken().equalsIgnoreCase("SEARCH")){ // Only parses SEARCHs
+
+				String receivedSearchID = st.nextToken();
+				System.out.println("RECEIVED: "+ received);
+
+				if (!receivedSearchID.equals(currentSearchID)){ // Compares to currentSearchID
+
+					// now to get the filename
+					String receivedKeywords = st.nextToken();
+					while(st.hasMoreTokens()){
+						receivedKeywords = receivedKeywords + " " + st.nextToken();
+					}
+
+					// We search for the keywords
+					for (int i=0; i!=fileArray.size(); i++) {
+						fileStruct fs = fileArray.get(i);
+						if (fs.fileName.toLowerCase().contains(receivedKeywords.toLowerCase())){
+							String answer = foundMessage(fs, receivedSearchID); // Creates the Answer
+							DatagramPacket answerPacket = new DatagramPacket(
+									answer.getBytes(), answer.length(),controlAddr);
+							mSocket.send(answerPacket);						
+
+						}
 					}
 				}
-			
 			}
 		}
-		
 	}
 	
 	
@@ -616,33 +644,92 @@ public class MulticastP2P {
 		mSocket.receive(receivePacket);
 		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 	
-		StringTokenizer st = new StringTokenizer(received);
+		final StringTokenizer st = new StringTokenizer(received); // TODO in theory, no conflicts should emerge - still to test though.
 		System.out.println("RECEIVED GET: "+ received);
-		
+
 		if(st.nextToken().equalsIgnoreCase("GET")){ // Only parses GETs
-			
+
 			
 			// Launch send thread for each GET detected // TODO and test
 			new Thread() {
 				public void run() {
-					
-					/*
+
 					String fileID = st.nextToken();
-					
+
 					
 					// get chunk numbers
 					String chunks = st.nextToken();
+					Vector<Long> chunksReq = new Vector<Long>(); /* vector with chunk numbers requested */
 					System.out.println("chunks requested: " + chunks);
-					*/
+					 
+
+					/* chunks format: a-b; a; a,b,c,d*/ 
+					if (chunks.indexOf("-") != -1) {
+						
+						String[] firstLast = chunks.split("-");
+						
+						for (long i=Long.parseLong(firstLast[0]); i<=Long.parseLong(firstLast[1]); i++) {
+							chunksReq.add(i);
+						}
+					} 
+					else if (chunks.indexOf(",") != -1) {
+						
+						StringTokenizer cToken = new StringTokenizer(chunks, ",");
+						
+						while(cToken.hasMoreTokens()) {
+							chunksReq.add(Long.parseLong(cToken.nextToken()));
+						}
+					}
+					else {
+						chunksReq.add(Long.parseLong(chunks));
+					}
 					
-					/* chunks format: a-b; a; a,b,c,d*/ // TODO
+					
+					// sends chunks requested
+					try {
+						sendChunks(fileID, chunksReq);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 					
 				}
 			};		
-	
-			
 		}
+	}
+	
+	
+	/***
+	 * Sends requested chunks through data port 
+	 * 
+	 * @param sha
+	 * @param chunkNumbers
+	 * @throws IOException
+	 */
+	void sendChunks(String sha, Vector<Long> chunkNumbers) throws IOException { // TODO testing
 		
+		fileStruct fReq= getFileByHash(sha);
+		Vector<byte[]> chunkVector= getChunks(fReq);
+		
+		
+		// Joins multicast group and creates socket
+		MulticastSocket mSocket = joinGroup(dataAddr);
+		DatagramPacket sendPacket = null;
+		
+		Random randGenerator = new Random();
+		
+		
+		while(!chunkVector.isEmpty()) {
+			
+			int randChunk = randGenerator.nextInt(chunkVector.size()); //TODO test of int/long doesn't give problems
+			byte[] chunk = chunkVector.get(randChunk);
+			
+			sendPacket = new DatagramPacket(
+					chunk, chunk.length,dataAddr);
+
+			mSocket.send(sendPacket);
+			chunkVector.remove(randChunk);
+		}
 	
 	}
 	
