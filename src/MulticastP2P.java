@@ -13,20 +13,27 @@ public class MulticastP2P {
 	public static final int MAXID = 9999999;
 	public static final int CHUNKSIZE = 1024;
 
+	boolean searchON;
 	Random randomGenerator; // stores the Random Number Generator
-
 	SearchResults currentSearchResults; // stores the results from the current search
-	
-	//MulticastSocket sockData; comented because it has to be createad every single thread for concurrent access
-	//MulticastSocket sockControl;
 	String currentSearchID; // Saves the current search id. We should not answer searches from ourselves.
-	
 	InetSocketAddress controlAddr; // IP and Port for control
 	InetSocketAddress dataAddr; // IP and port for data
 	
 	private  Vector<fileStruct> fileArray;
 	
-	/*
+	/**
+	 * Constructor
+	 */
+	public MulticastP2P(){
+		randomGenerator = new Random(); // Generates a random number sequence
+		currentSearchResults = null; // only created when after a search
+		fileArray = new Vector<fileStruct>();
+		searchON = false;
+	}
+
+	
+	/**
 	 * Stores the results from the current search
 	 */
 	private class SearchResults{
@@ -170,12 +177,6 @@ public class MulticastP2P {
 		
 	}
 
-
-	public MulticastP2P(){
-		randomGenerator = new Random(); // Generates a random number sequence
-		currentSearchResults = null; // only created when after a search
-		fileArray = new Vector<fileStruct>();
-	}
 
 
 	/**
@@ -354,13 +355,24 @@ public class MulticastP2P {
 		// Creates the searchPacket and sends it.
 		searchPacket = new DatagramPacket(
 				searchString.getBytes(), searchString.length(),controlAddr);
+		
 
+		
 		mSocket.send(searchPacket);
 
 		// TODO While para ler e apresentar resultados
 		
 		// TODO While para receber e filtrar resultados
-		boolean searchON = true;
+		searchON = true;
+		
+		/**
+		 * Waits for the user to choose a current search result and starts getting that search result
+		 */
+		new Thread() {
+			public void run() {
+				waitChoice();
+			}
+		}.start();
 		
 		while (searchON){ //TODO!!!!!!!
 			byte[] buf = new byte[512];
@@ -389,6 +401,7 @@ public class MulticastP2P {
 				
 			}
 		}
+		System.out.println("Search STOPED");
 		
 
 	}
@@ -731,6 +744,41 @@ public class MulticastP2P {
 			chunkVector.remove(randChunk);
 		}
 	
+	}
+	
+	/**
+	 * Waits for a choice from the user then constructs the GET message and sends it.
+	 * Then calls another method that waits for the chunks to arrive.
+	 */
+	void waitChoice(){
+		System.out.println("Write X to stop search");
+		Scanner in = new Scanner(System.in);
+		String choiceStr = null;
+		if(!(choiceStr = in.nextLine()).equalsIgnoreCase("X")){
+			int choice = Integer.parseInt(choiceStr.trim());
+			SearchResult sr = currentSearchResults.results.elementAt(choice);
+			if(sr!= null){
+				int chunks = (int) ((sr.filesize-1)/CHUNKSIZE); // TODO: possiveis problemas com long to int
+				// TODO: Constructs get message and sends it
+				String getStr = "GET " + sr.sha + " 0-" + chunks;
+				
+				// Sends the get message
+				try {
+					MulticastSocket mSocket = joinGroup(controlAddr);
+					DatagramPacket getPacket = new DatagramPacket(
+							getStr.getBytes(), getStr.length(),controlAddr);
+					mSocket.send(getPacket);
+					System.out.println("SENDING: "+ getStr);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				// TODO Call another thread to get the packets.
+				
+				searchON = false; // Stop receiving results
+			}
+		}		
+		System.out.println("DEBUG: Ended Choice Thread");
 	}
 	
 }
