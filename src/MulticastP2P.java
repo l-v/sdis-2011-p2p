@@ -18,6 +18,7 @@ public class MulticastP2P {
 
 	public static final int MAXID = 9999999;
 	public static final int CHUNKSIZE = 1024;
+	public static final int HEADERSIZE = 64;
 	
 	DefaultListModel listModel;
 	JTextArea console;
@@ -27,8 +28,11 @@ public class MulticastP2P {
 	String currentSearchID; // Saves the current search id. We should not answer searches from ourselves.
 	InetSocketAddress controlAddr; // IP and Port for control
 	InetSocketAddress dataAddr; // IP and port for data
+	DownloadingFile currentDownload;
 	
 	private  Vector<fileStruct> fileArray;
+	
+
 	
 	/**
 	 * Constructor
@@ -848,8 +852,8 @@ public class MulticastP2P {
 				e.printStackTrace();
 			}
 			
-			byte[] buf = new byte[2048];
-			DatagramPacket dataPacket = new DatagramPacket(buf,2048);
+			byte[] buf = new byte[CHUNKSIZE+HEADERSIZE];
+			DatagramPacket dataPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
 			try {
 				consolePrint("DEBUG: Waiting for Data Packet");
 				MulticastSocket dataSocket = joinGroup(dataAddr);
