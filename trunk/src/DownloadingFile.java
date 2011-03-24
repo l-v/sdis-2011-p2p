@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.io.FileOutputStream;
 import java.util.*;
 
 
@@ -25,8 +27,21 @@ public class DownloadingFile {
 		}
 	};
 	
-	void writeToDisk(){
-		//TODO
+	/***
+	 * Recebe o nome do ficheiro a escrever e a lista de data chunks ordenados (sem header)
+	 * 
+	 * @param fileName
+	 * @param chunksData
+	 * @throws IOException
+	 */
+	void writeToDisk() throws IOException {
+
+		FileOutputStream outFile =  new FileOutputStream( filename );  
+		
+		// appends all data bytes and writes to output file
+		for (int i =0 ; i!=chunks.size(); i++) {
+			outFile.write(chunks.get(i).data);
+		} 
 	};
 	
 	Chunk getChunk(long chunkNumber){

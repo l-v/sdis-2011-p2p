@@ -1,7 +1,6 @@
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.File;
 import java.net.*;
@@ -587,7 +586,7 @@ public class MulticastP2P {
 			System.arraycopy(fChunk, 0, finalChunk, 64, fChunk.length);
 			
 			/* add chunk to vector */
-			chunkVector.add(finalChunk);
+			chunkVector.add(fChunk);
 			chunkCounter++;
 		}
 		
@@ -601,30 +600,12 @@ public class MulticastP2P {
 		*/
 		
 		//buildFromChunks("fileHere.txt", fLength, chunkVector);
-
 		
+
 		return chunkVector;
 	}
 	
-	/***
-	 * Recebe o nome do ficheiro a escrever e a lista de data chunks ordenados (sem header)
-	 * 
-	 * @param fileName
-	 * @param chunksData
-	 * @throws IOException
-	 */
-	private void buildFromChunks(String fileName, long fileSize, Vector<byte[]> chunksData) throws IOException {
-
-		byte[] fileData = new byte[(int)fileSize];
-		
-		FileOutputStream outFile =  new FileOutputStream( fileName );  
-		
-		
-		for (int i=0; i!=chunksData.size(); i++)
-		{
-			outFile.write(chunksData.get(i));
-		}
-	}
+	
 
 
 	/***
