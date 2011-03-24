@@ -855,10 +855,18 @@ public class MulticastP2P {
 			byte[] buf = new byte[CHUNKSIZE+HEADERSIZE];
 			DatagramPacket dataPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
 			try {
-				consolePrint("DEBUG: Waiting for Data Packet");
 				MulticastSocket dataSocket = joinGroup(dataAddr);
-				dataSocket.receive(dataPacket);		
-				consolePrint("DEBUG: Received Data Packet");
+				dataSocket.receive(dataPacket);
+				
+				byte[] receivedData = dataPacket.getData();
+				// converts the sha bytes to string so we can compare
+				StringBuffer sb = new StringBuffer();
+				for (int i = 0; i < 32; i++) {
+					sb.append(Integer.toString((receivedData[i] & 0xff) + 0x100, 16).substring(1));
+				} 
+				String sha = sb.toString();
+				
+				consolePrint("DEBUG: Received data packet with SHA: " + sha);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
