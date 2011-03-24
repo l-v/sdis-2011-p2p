@@ -587,7 +587,7 @@ public class MulticastP2P {
 			System.arraycopy(fChunk, 0, finalChunk, 64, fChunk.length);
 			
 			/* add chunk to vector */
-			chunkVector.add(fChunk);//(finalChunk);
+			chunkVector.add(finalChunk);
 			chunkCounter++;
 		}
 		
@@ -601,6 +601,8 @@ public class MulticastP2P {
 		*/
 		
 		//buildFromChunks("fileHere.txt", fLength, chunkVector);
+
+		
 		return chunkVector;
 	}
 	
