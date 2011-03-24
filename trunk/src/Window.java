@@ -5,6 +5,7 @@ import javax.swing.JTextPane;
 import java.awt.BorderLayout;
 
 import javax.swing.DefaultListModel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JButton;
 import javax.swing.AbstractAction;
@@ -17,14 +18,16 @@ import java.net.InetSocketAddress;
 import javax.swing.JList;
 import javax.swing.ListSelectionModel;
 import javax.swing.AbstractListModel;
+import java.awt.ScrollPane;
+import javax.swing.JLabel;
 
 public class Window {
 
-	private JFrame frame;
+	private JFrame frmMulticastPp;
 	private JTextField textFieldSearch;
 	private JButton btnSearch;
 	private JList listResults;
-	JTextArea textAreaConsole;
+	MulticastP2P p2p;
 
 
 	/**
@@ -35,7 +38,7 @@ public class Window {
 			public void run() {
 				try {
 					Window window = new Window();
-					window.frame.setVisible(true);
+					window.frmMulticastPp.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -51,6 +54,8 @@ public class Window {
 	 * Create the application.
 	 */
 	public Window() {
+		p2p = new MulticastP2P();
+		p2p.start();
 		initialize();
 
 
@@ -61,22 +66,28 @@ public class Window {
 	 * Initialize the contents of the frame.
 	 */
 	private void initialize() {
+		listResults = new JList(p2p.listModel);
 		
-		final MulticastP2P p2p = new MulticastP2P();
-		p2p.start();
+		frmMulticastPp = new JFrame();
+		frmMulticastPp.setResizable(false);
+		frmMulticastPp.setTitle("Multicast P2P");
+		frmMulticastPp.setBounds(100, 100, 663, 431);
+		frmMulticastPp.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frmMulticastPp.getContentPane().setLayout(null);
 		
-		
-		frame = new JFrame();
-		frame.setBounds(100, 100, 663, 431);
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.getContentPane().setLayout(null);
+
+		listResults.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		listResults.setBounds(10, 243, 627, 125);
+		frmMulticastPp.getContentPane().add(listResults);
 		
 		textFieldSearch = new JTextField();
-		textFieldSearch.setBounds(10, 304, 305, 20);
-		frame.getContentPane().add(textFieldSearch);
+		textFieldSearch.setBounds(10, 11, 305, 20);
+		frmMulticastPp.getContentPane().add(textFieldSearch);
 		textFieldSearch.setColumns(10);
 		
-		final JButton btnGet = new JButton("Get");
+
+		
+		final JButton btnGet = new JButton("Download Selected");
 		btnGet.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				final int selected = listResults.getSelectedIndex();
@@ -89,21 +100,18 @@ public class Window {
 					}.start();
 
 				}
+					
 			}
 		});
 		btnGet.setEnabled(false);
-		btnGet.setBounds(424, 303, 89, 23);
-		frame.getContentPane().add(btnGet);
+		btnGet.setBounds(489, 216, 148, 23);
+		frmMulticastPp.getContentPane().add(btnGet);
 		
-		textAreaConsole = new JTextArea();
+		JTextArea textAreaConsole = p2p.console;
 		textAreaConsole.setBounds(10, 11, 627, 130);
-		frame.getContentPane().add(textAreaConsole);
+		frmMulticastPp.getContentPane().add(textAreaConsole);
 		
-		listResults = new JList(p2p.listModel);
-		listResults.setVisibleRowCount(5);
-		listResults.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		listResults.setBounds(10, 152, 627, 125);
-		frame.getContentPane().add(listResults);
+
 		
 		btnSearch = new JButton("Search");
 		btnSearch.addActionListener(new ActionListener() {
@@ -117,8 +125,27 @@ public class Window {
 				}.start(); // Starts a thread that does a search
 			}
 		});
-		btnSearch.setBounds(325, 303, 89, 23);
-		frame.getContentPane().add(btnSearch);
+		btnSearch.setBounds(325, 10, 89, 23);
+		frmMulticastPp.getContentPane().add(btnSearch);
+	
+		
+		JScrollPane scrollPaneResults = new JScrollPane(listResults);
+		scrollPaneResults.setBounds(10, 61, 627, 145);
+		frmMulticastPp.getContentPane().add(scrollPaneResults);
+		
+		JScrollPane scrollPaneConsole = new JScrollPane(p2p.console);
+		scrollPaneConsole.setBounds(10, 250, 627, 132);
+		frmMulticastPp.getContentPane().add(scrollPaneConsole);
+		
+		JLabel lblSearchResults = new JLabel("Search Results:");
+		lblSearchResults.setBounds(10, 42, 117, 14);
+		frmMulticastPp.getContentPane().add(lblSearchResults);
+		
+		JLabel lblConsole = new JLabel("Console:");
+		lblConsole.setBounds(10, 231, 89, 14);
+		frmMulticastPp.getContentPane().add(lblConsole);
+		
+
 		
 		
 

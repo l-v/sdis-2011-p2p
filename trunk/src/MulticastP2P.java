@@ -9,6 +9,7 @@ import java.util.*;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 
 
 public class MulticastP2P {
@@ -17,8 +18,8 @@ public class MulticastP2P {
 	public static final int CHUNKSIZE = 1024;
 	
 	DefaultListModel listModel;
+	JTextArea console;
 	
-	boolean searchON;
 	Random randomGenerator; // stores the Random Number Generator
 	SearchResults currentSearchResults; // stores the results from the current search
 	String currentSearchID; // Saves the current search id. We should not answer searches from ourselves.
@@ -34,11 +35,21 @@ public class MulticastP2P {
 		randomGenerator = new Random(); // Generates a random number sequence
 		currentSearchResults = null; // only created when after a search
 		fileArray = new Vector<fileStruct>();
-		searchON = false;
 		listModel = new DefaultListModel();
+		console = new JTextArea();
 	}
 
-	
+	void consolePrint(final String str){
+		Runnable doWorkRunnable = new Runnable() {
+		    public void run() { 
+				console.append(str + "\n");
+				console.setCaretPosition(console.getDocument().getLength());
+		    }
+		};
+		SwingUtilities.invokeLater(doWorkRunnable);
+
+	}
+
 	/**
 	 * Stores the results from the current search
 	 */
@@ -47,8 +58,8 @@ public class MulticastP2P {
 		Vector<SearchResult> results;
 		
 		SearchResults(){
-			results = new Vector<SearchResult>();
 			listModel.clear();
+			results = new Vector<SearchResult>();
 		}
 		
 		/**
@@ -59,17 +70,29 @@ public class MulticastP2P {
 		 * @return
 		 */
 		int insertResult(String sha, long filesize, String filename){
-			SearchResult sr = new SearchResult(sha,filesize,filename);
+			final SearchResult sr = new SearchResult(sha,filesize,filename);
 			
-			int resultIndex = results.indexOf(sr);
+			final int resultIndex = results.indexOf(sr);
 			if(resultIndex != -1){ // if Object exits
 				results.elementAt(resultIndex).addPeer();
-				listModel.insertElementAt(results.elementAt(resultIndex).toString(),resultIndex);
+				// swing makes us do this when working with threads because its not thread safe
+				// http://java.sun.com/products/jfc/tsc/articles/threads/threads1.html
+				Runnable doWorkRunnable = new Runnable() {
+				    public void run() { 
+				    	listModel.set(resultIndex,results.elementAt(resultIndex).toString());
+				    }
+				};
+				SwingUtilities.invokeLater(doWorkRunnable);
 				return results.elementAt(resultIndex).peers;
 			}
 			else{
 				results.add(sr);
-				listModel.addElement(sr.toString());
+				Runnable doWorkRunnable = new Runnable() {
+				    public void run() { 
+						listModel.addElement(sr.toString());
+				    }
+				};
+				SwingUtilities.invokeLater(doWorkRunnable);
 				return 1;
 			}
 		}
@@ -84,17 +107,6 @@ public class MulticastP2P {
 			}
 			return s;
 		}
-		
-		void updateList(DefaultListModel listModel){
-			listModel.clear();
-			
-			Iterator<SearchResult> it = results.iterator();
-			while(it.hasNext()){
-				listModel.addElement((it.next().toString()));
-				System.out.println("TESTE");
-			}
-		}
-		
 	}
 	
 
@@ -126,9 +138,9 @@ public class MulticastP2P {
 		}
 
 		void printStruct() {
-			System.out.println("File: " + fileName + "\n\tSize: " + fileSize);
-			System.out.println("\tTotalChunks: " + totalChunks);
-			System.out.println("\tHashValue (sha): " + sha);
+			consolePrint("File: " + fileName + "\n\tSize: " + fileSize);
+			consolePrint("\tTotalChunks: " + totalChunks);
+			consolePrint("\tHashValue (sha): " + sha);
 		}
 	}
 
@@ -191,7 +203,7 @@ public class MulticastP2P {
 
 		@Override
 		public String toString() {
-			return sha + " | " + filename + " | " + filesize + " | " + peers;
+			return filename + " | " + filesize + "B | " + peers  + " | " + sha ;
 		}
 		
 	}
@@ -213,7 +225,7 @@ public class MulticastP2P {
 		 * ByteBuffer.order(ByteOrder bo)
          *      Modifies this buffer's byte order.
 		 */
-		 // System.out.println((java.nio.ByteOrder.nativeOrder().toString()));
+		 // consolePrint((java.nio.ByteOrder.nativeOrder().toString()));
 		 
 
 
@@ -269,7 +281,7 @@ public class MulticastP2P {
 					e.printStackTrace();
 				}
 			}
-		};		
+		}.start();		
 		
 		
 		/* testes_temp*/
@@ -277,15 +289,15 @@ public class MulticastP2P {
 		try {
 			p2p.indexFiles("/home/liliana/Documents", CHUNKSIZE);
 
-			System.out.println(p2p.intToByte(12));
-			System.out.println("\n"+p2p.byteToInt(p2p.intToByte(999999999)));
+			consolePrint(p2p.intToByte(12));
+			consolePrint("\n"+p2p.byteToInt(p2p.intToByte(999999999)));
 			
 			for (int i = 0; i!=fileArray.size(); i++) {
 				fileArray.get(i).printStruct();
 			}
 	
-			 System.out.println("Presente? " + p2p.hasFile("scraps"));
-			 System.out.println("Path: " + fileArray.get( p2p.hasFile("scraps") ).completePath + "\n");
+			 consolePrint("Presente? " + p2p.hasFile("scraps"));
+			 consolePrint("Path: " + fileArray.get( p2p.hasFile("scraps") ).completePath + "\n");
 			 
 			 Vector<byte[]> chunkResult = getChunks(fileArray.get( p2p.hasFile("boletim.html")));
 			 
@@ -296,18 +308,7 @@ public class MulticastP2P {
 		*/
 		
 		
-		//Novo teste
-		/*
-		p2p.controlAddr = new InetSocketAddress("224.0.2.10",8967);
-		p2p.dataAddr = new InetSocketAddress("224.0.2.10",8966);
 
-		try {
-			p2p.search("teste");
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-*/
 	}
 
 
@@ -367,7 +368,7 @@ public class MulticastP2P {
 
 		String searchString = "SEARCH" + " " + currentSearchID + " " 
 		+ keywordList; // Generates search string.
-		System.out.println(searchString);
+		consolePrint("OUT: " + searchString);
 
 		DatagramPacket searchPacket = null;
 
@@ -399,10 +400,11 @@ public class MulticastP2P {
 			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 			// Splitting the answer in tokens
 			StringTokenizer st = new StringTokenizer(received);
-			//System.out.println(received);
+			//consolePrint(received);
 			
 			if(st.nextToken().equalsIgnoreCase("FOUND")){ // Only parses FOUNDs
 				if (st.nextToken().equals(currentSearchID)){ // Compares to currentSearchID
+					consolePrint("IN: " + received);
 					String receivedSha = st.nextToken();
 					long receivedSize = Long.parseLong(st.nextToken());
 					
@@ -418,7 +420,6 @@ public class MulticastP2P {
 				
 			}
 		}
-		System.out.println("Search STOPED");
 		
 
 	}
@@ -571,11 +572,11 @@ public class MulticastP2P {
 		}
 		
 		if (chunkVector.size() != fileReq.totalChunks) {
-			System.out.println("\nWarning: number of chunks generated is not the expected.");
+			consolePrint("\nWarning: number of chunks generated is not the expected.");
 		}
 		/*
-		System.out.println("File: " + fileReq.fileName);
-		System.out.println("fLength: " + fLength);
+		consolePrint("File: " + fileReq.fileName);
+		consolePrint("fLength: " + fLength);
 		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
 		*/
 		return chunkVector;
@@ -617,9 +618,9 @@ public class MulticastP2P {
 		} 
 
 		/*
-		System.out.println("Hex format : " + sb.toString());
-		System.out.println("Hex format length : " + sb.toString().length());
-		System.out.println("MD length : " + mdbytes.length);
+		consolePrint("Hex format : " + sb.toString());
+		consolePrint("Hex format length : " + sb.toString().length());
+		consolePrint("MD length : " + mdbytes.length);
 		 */
 		
 		String hashString = sb.toString();
@@ -639,17 +640,18 @@ public class MulticastP2P {
 			mSocket.receive(receivePacket);
 			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 			
-			System.out.println("RECEIVED: "+ received);
+			//consolePrint(">: "+ received);
 			
 			StringTokenizer st = new StringTokenizer(received);
 
 			if(st.nextToken().equalsIgnoreCase("SEARCH")){ // Only parses SEARCHs
-
+				
+				
 				String receivedSearchID = st.nextToken();
 				
 
 				if (!receivedSearchID.equals(currentSearchID)){ // Compares to currentSearchID
-
+					consolePrint("IN: "+ received);
 					// now to get the filename
 					String receivedKeywords = st.nextToken();
 					while(st.hasMoreTokens()){
@@ -663,7 +665,8 @@ public class MulticastP2P {
 							String answer = foundMessage(fs, receivedSearchID); // Creates the Answer
 							DatagramPacket answerPacket = new DatagramPacket(
 									answer.getBytes(), answer.length(),controlAddr);
-							mSocket.send(answerPacket);						
+							mSocket.send(answerPacket);
+							consolePrint("OUT: "+ answer);
 
 						}
 					}
@@ -684,10 +687,10 @@ public class MulticastP2P {
 		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 	
 		final StringTokenizer st = new StringTokenizer(received); // TODO in theory, no conflicts should emerge - still to test though.
-		System.out.println("RECEIVED GET: "+ received);
+		
 
 		if(st.nextToken().equalsIgnoreCase("GET")){ // Only parses GETs
-
+			consolePrint("IN: "+ received);
 			
 			// Launch send thread for each GET detected // TODO and test
 			new Thread() {
@@ -699,7 +702,7 @@ public class MulticastP2P {
 					// get chunk numbers
 					String chunks = st.nextToken();
 					Vector<Long> chunksReq = new Vector<Long>(); /* vector with chunk numbers requested */
-					System.out.println("chunks requested: " + chunks);
+					consolePrint("chunks requested: " + chunks);
 					 
 
 					/* chunks format: a-b; a; a,b,c,d*/ 
@@ -733,7 +736,7 @@ public class MulticastP2P {
 					}
 					
 				}
-			};		
+			}.start();		
 		}
 	}
 	
@@ -767,7 +770,9 @@ public class MulticastP2P {
 			
 			sendPacket = new DatagramPacket(
 					chunk, chunk.length,dataAddr);
-
+			
+			consolePrint("DEBUG: Sent Data Packet");
+			
 			mSocket.send(sendPacket);
 			chunkNumbers.remove(randChunk);
 		}
@@ -789,14 +794,28 @@ public class MulticastP2P {
 				DatagramPacket getPacket = new DatagramPacket(
 						getStr.getBytes(), getStr.length(),controlAddr);
 				mSocket.send(getPacket);
-				System.out.println("SENDING: "+ getStr);
+				consolePrint("OUT: "+ getStr);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			
+			byte[] buf = new byte[2048];
+			DatagramPacket dataPacket = new DatagramPacket(buf,2048);
+			try {
+				consolePrint("DEBUG: Waiting for Data Packet");
+				MulticastSocket dataSocket = joinGroup(dataAddr);
+				dataSocket.receive(dataPacket);		
+				consolePrint("DEBUG: Received Data Packet");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+					
+					
 			// TODO Call another thread to get the packets.
 		}	
-		System.out.println("DEBUG: Ended Choice Thread");
 	}
 	
 }
