@@ -536,7 +536,7 @@ public class MulticastP2P {
 	 * @throws IOException
 	 */
 	private Vector<byte[]> getChunks(fileStruct fileReq) throws IOException {
-		System.out.println("-> ARRIVED TO getChunks");
+
 		Vector<byte[]> chunkVector = new Vector<byte[]>();
 	
 		FileInputStream file = new FileInputStream(fileReq.completePath);
@@ -552,27 +552,36 @@ public class MulticastP2P {
 			
 			
 			/* add chunk header */
-			byte[] fileID = new byte[32]; //32bytes=256bits
-			byte[] chunkNumber = new byte[256];
-			System.out.println("Leng: " + fileReq.sha.getBytes().length);
-			fileID = fileReq.sha.getBytes();
-			System.out.println(":::: " + fileID.length);			
-			chunkNumber = intToByte(chunkCounter);  
+			byte[] fileID = new byte[32];
+			byte[] chunkNumber = new byte[8];
+			byte[] reserved = new byte[24];
+			
+			try {
+				fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
+			} catch (NoSuchAlgorithmException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} 
+						
+			System.arraycopy(intToByte(chunkCounter), 0, chunkNumber, 0, intToByte(chunkCounter).length);
+			//System.out.println(":::: " + chunkNumber.length);
+			
 			
 			/* concatenate byte arrays with header */
-			/*byte[] header = new byte[512];
-			byte[] temp = new byte[10]; 
-			temp[0] = (byte)0;
-			temp[1] = (byte)15;
+			byte[] header = new byte[64];
 			
-			System.arraycopy(fileID, 0, header, 0, 65);
-			//System.arraycopy(chunkNumber, 0, header, 256, chunkNumber.length);
-			
-			
-			byte[] finalChunk = new byte[512 + CHUNKSIZE];
-			//System.arraycopy(header, 0, finalChunk, 0, 512);
-			System.arraycopy(fChunk, 0, finalChunk, 0, fChunk.length);
+			System.arraycopy(fileID, 0, header, 0, fileID.length);
+			System.arraycopy(chunkNumber, 0, header, 32, chunkNumber.length);
+			System.arraycopy(reserved, 0, header, 40, reserved.length);
+		/*	
+			System.out.println("-> " + fileID.length);
+			System.out.println("fileID[254]:" + fileID[31] + " -ID255: " + chunkNumber[0]);
+			System.out.println("header length: " + header.length + " -header[30]:" + header[31] + " -31:" + header[32]);
 			*/
+			byte[] finalChunk = new byte[64 + CHUNKSIZE];
+			System.arraycopy(header, 0, finalChunk, 0, 64);
+			System.arraycopy(fChunk, 0, finalChunk, 64, fChunk.length);
+			
 			/* add chunk to vector */
 			chunkVector.add(fChunk);//(finalChunk);
 			chunkCounter++;
@@ -586,7 +595,7 @@ public class MulticastP2P {
 		consolePrint("fLength: " + fLength);
 		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
 		*/
-		System.out.println("->LEFT getChunks");
+		
 		//buildFromChunks("fileHere.txt", fLength, chunkVector);
 		return chunkVector;
 	}
@@ -613,14 +622,14 @@ public class MulticastP2P {
 
 
 	/***
-	 * Checksum method
+	 * Checksum method (returns byte[] value)
 	 * 
 	 * @param filePath
-	 * @return String: contains the hashValue of the file
+	 * @return byte[]
 	 * @throws NoSuchAlgorithmException
 	 * @throws IOException
 	 */
-	public String SHACheckSum(String fileName) throws NoSuchAlgorithmException, IOException{
+	public byte[] SHACheckSumBytes(String fileName) throws NoSuchAlgorithmException, IOException{
 
 		MessageDigest md = MessageDigest.getInstance("SHA-256");	 
 		FileInputStream fis = new FileInputStream(fileName);
@@ -634,9 +643,21 @@ public class MulticastP2P {
 		};
 
 		byte[] mdbytes = md.digest();
-
-
-
+		return mdbytes;
+	} 
+	
+	/***
+	 * CheckSum method (returns String value)
+	 * 
+	 * @param fileName
+	 * @return String
+	 * @throws NoSuchAlgorithmException
+	 * @throws IOException
+	 */
+	public String SHACheckSum(String fileName) throws NoSuchAlgorithmException, IOException {
+		
+		byte[] mdbytes = SHACheckSumBytes(fileName);
+		
 		//convert the byte to hex format
 		StringBuffer sb = new StringBuffer();
 
@@ -648,11 +669,11 @@ public class MulticastP2P {
 		consolePrint("Hex format : " + sb.toString());
 		consolePrint("Hex format length : " + sb.toString().length());
 		consolePrint("MD length : " + mdbytes.length);
-		 */
+		*/ 
 		
 		String hashString = sb.toString();
 		return hashString;
-	} 
+	}
 	
 	
 	void searchReply() throws IOException{
