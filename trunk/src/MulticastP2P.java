@@ -1,4 +1,6 @@
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
@@ -534,7 +536,7 @@ public class MulticastP2P {
 	 * @throws IOException
 	 */
 	private Vector<byte[]> getChunks(fileStruct fileReq) throws IOException {
-		
+		System.out.println("-> ARRIVED TO getChunks");
 		Vector<byte[]> chunkVector = new Vector<byte[]>();
 	
 		FileInputStream file = new FileInputStream(fileReq.completePath);
@@ -546,28 +548,33 @@ public class MulticastP2P {
 			// TODO falta testar
 			byte[] fChunk =  new byte[CHUNKSIZE]; 
 			long bytes = file.read(fChunk);  
-			bytesRead += bytes; 
+			bytesRead += bytes;  
 			
 			
 			/* add chunk header */
-			byte[] fileID = new byte[256];
+			byte[] fileID = new byte[32]; //32bytes=256bits
 			byte[] chunkNumber = new byte[256];
-			
+			System.out.println("Leng: " + fileReq.sha.getBytes().length);
 			fileID = fileReq.sha.getBytes();
-			chunkNumber = intToByte(chunkCounter); 
+			System.out.println(":::: " + fileID.length);			
+			chunkNumber = intToByte(chunkCounter);  
 			
 			/* concatenate byte arrays with header */
-			byte[] header = new byte[512];
-			System.arraycopy(fileID, 0, header, 0, 256);
-			System.arraycopy(chunkNumber, 0, header, 256, 256);
+			/*byte[] header = new byte[512];
+			byte[] temp = new byte[10]; 
+			temp[0] = (byte)0;
+			temp[1] = (byte)15;
+			
+			System.arraycopy(fileID, 0, header, 0, 65);
+			//System.arraycopy(chunkNumber, 0, header, 256, chunkNumber.length);
 			
 			
 			byte[] finalChunk = new byte[512 + CHUNKSIZE];
-			System.arraycopy(header, 0, finalChunk, 0, 512);
-			System.arraycopy(fChunk, 0, finalChunk, 512, fChunk.length);
-			
+			//System.arraycopy(header, 0, finalChunk, 0, 512);
+			System.arraycopy(fChunk, 0, finalChunk, 0, fChunk.length);
+			*/
 			/* add chunk to vector */
-			chunkVector.add(finalChunk);
+			chunkVector.add(fChunk);//(finalChunk);
 			chunkCounter++;
 		}
 		
@@ -579,10 +586,30 @@ public class MulticastP2P {
 		consolePrint("fLength: " + fLength);
 		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
 		*/
+		System.out.println("->LEFT getChunks");
+		//buildFromChunks("fileHere.txt", fLength, chunkVector);
 		return chunkVector;
 	}
 	
+	/***
+	 * Recebe o nome do ficheiro a escrever e a lista de data chunks ordenados (sem header)
+	 * 
+	 * @param fileName
+	 * @param chunksData
+	 * @throws IOException
+	 */
+	private void buildFromChunks(String fileName, long fileSize, Vector<byte[]> chunksData) throws IOException {
 
+		byte[] fileData = new byte[(int)fileSize];
+		
+		FileOutputStream outFile =  new FileOutputStream( fileName );  
+		
+		
+		for (int i=0; i!=chunksData.size(); i++)
+		{
+			outFile.write(chunksData.get(i));
+		}
+	}
 
 
 	/***
