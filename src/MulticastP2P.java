@@ -20,6 +20,8 @@ public class MulticastP2P {
 	public static final int MAXID = 9999999;
 	public static final int CHUNKSIZE = 1024;
 	public static final int HEADERSIZE = 64;
+	public static final int BUFF = 1024;
+	public static final int SOCKETTIMEOUT = 1000;
 	
 	DefaultListModel listModel;
 	JTextArea console;
@@ -388,8 +390,8 @@ public class MulticastP2P {
 		}
 		
 		while (currentSearchID.equals(ownID) ){ // Stops search when ID changes
-			byte[] buf = new byte[512];
-			DatagramPacket receivePacket = new DatagramPacket(buf,512);
+			byte[] buf = new byte[BUFF];
+			DatagramPacket receivePacket = new DatagramPacket(buf,BUFF);
 			try {
 				mSocket.receive(receivePacket);
 			} catch (IOException e) {
@@ -664,10 +666,10 @@ public class MulticastP2P {
 		// Joins multicast group and creates socket
 		MulticastSocket mSocket = joinGroup(controlAddr);
 
-		byte[] buf = new byte[512];
+		byte[] buf = new byte[BUFF];
 
 		while(true) {
-			DatagramPacket receivePacket = new DatagramPacket(buf,512);
+			DatagramPacket receivePacket = new DatagramPacket(buf,BUFF);
 			mSocket.receive(receivePacket);
 			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 			
@@ -715,8 +717,8 @@ public class MulticastP2P {
 		// Joins multicast group and creates socket
 		MulticastSocket mSocket = joinGroup(controlAddr);
 	
-		byte[] buf = new byte[1024];
-			DatagramPacket receivePacket = new DatagramPacket(buf,1024);
+		byte[] buf = new byte[BUFF];
+			DatagramPacket receivePacket = new DatagramPacket(buf,BUFF);
 		
 		while(true){
 			mSocket.receive(receivePacket);
@@ -896,7 +898,6 @@ public class MulticastP2P {
 		SearchResult sr = currentSearchResults.results.elementAt(choice);
 		if(sr!= null){
 			long chunks = (int) ((sr.filesize-1)/CHUNKSIZE)+1; // calculates total chunks( max chunk + 1)
-			//String getStr = "GET " + sr.sha + " 0-" + (chunks-1); // creates the message
 			String getStr = null;
 			
 			DownloadingFile newFile = new DownloadingFile(chunks,sr.filename,sr.sha); // creates the structure to save the downloading file
@@ -907,7 +908,7 @@ public class MulticastP2P {
 			try {
 				dataSocket = joinGroup(dataAddr); // Joins the data group to receive the files;
 				mSocket = joinGroup(controlAddr); // Joins the control group to send the get command;
-				dataSocket.setSoTimeout(5000); // Makes the socket timeout after 500 ms
+				dataSocket.setSoTimeout(SOCKETTIMEOUT); // Makes the socket timeout 
 				
 			} catch (IOException e) {
 				System.out.println("IOException");
@@ -926,7 +927,7 @@ public class MulticastP2P {
 					 * the last added chunk.
 					 * */
 					long elapsedTime = System.currentTimeMillis()-newFile.timeLastAdded;
-					if(((newFile.requestedChunks < 1) || (elapsedTime > 10000)) && !newFile.isDone()){
+					if(((newFile.requestedChunks < 1) || (elapsedTime > 3000)) && !newFile.isDone()){
 						getStr = "GET " + sr.sha + " "+ newFile.getSome(); // creates the message
 						getPacket = new DatagramPacket(
 								getStr.getBytes(), getStr.length(),controlAddr);
@@ -937,11 +938,7 @@ public class MulticastP2P {
 					try{
 					dataSocket.receive(dataPacket);
 					}catch (SocketTimeoutException e){
-						consolePrint("Download stalled: received no data.");
-//						getStr = "GET " + sr.sha + " "+ newFile.missingStr(); // creates the message
-//						getPacket = new DatagramPacket(
-//								getStr.getBytes(), getStr.length(),controlAddr);
-//						mSocket.send(getPacket);
+						System.out.println("Stalled: received no data.");
 					}
 					
 					byte[] receivedData = dataPacket.getData();
@@ -979,13 +976,12 @@ public class MulticastP2P {
 							//Gets the data
 							byte[] cData = new byte[CHUNKSIZE];
 							System.arraycopy(receivedData, 64, cData, 0, CHUNKSIZE);
-							//System.out.println(">>" + byteToLong(cNumber) + "|" + byteToLong(longToByte(8)));
 							
 							newFile.addChunk(byteToLong(cNumber), cData, cHashCheck );
 							
 							consolePrint("DEBUG: Received chunk "+ byteToLong(cNumber)+" | SHA: " + sha);
 							
-							System.out.println(newFile.missingStr());
+							System.out.println("Missing chunks: " + newFile.missingChunks.size());
 						}
 					}
 					
