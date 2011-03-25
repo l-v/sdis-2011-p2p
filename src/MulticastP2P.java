@@ -3,6 +3,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.File;
+import java.io.Serializable;
 import java.net.*;
 import java.nio.channels.Selector;
 import java.security.MessageDigest;
@@ -32,6 +33,7 @@ public class MulticastP2P {
 	
 	private  Vector<fileStruct> fileArray;
 	
+	Vector<UploadingFile> currentUploads; // All the files being uploaded
 
 	
 	/**
@@ -43,6 +45,7 @@ public class MulticastP2P {
 		fileArray = new Vector<fileStruct>();
 		listModel = new DefaultListModel();
 		console = new JTextArea();
+		currentUploads = new Vector<UploadingFile>();
 	}
 
 	void consolePrint(final String str){
@@ -241,20 +244,6 @@ public class MulticastP2P {
 		dataAddr = new InetSocketAddress("224.0.2.10",8966);
 		
 		
-//		// Lançar thread pesquisa
-//		new Thread() {
-//			public void run() {			
-//				try {
-//					for(;;){
-//						search();
-//					}
-//				} catch (IOException e) {
-//					// TODO Auto-generated catch block
-//					e.printStackTrace();
-//				}
-//			}
-//		}.start();
-		
 		// Lançar thread resposta
 		new Thread() {
 			public void run() {			
@@ -271,7 +260,7 @@ public class MulticastP2P {
 		new Thread() {
 			public void run() {
 				try {
-					while (true) {
+					while(true){
 						sendFile();
 					}
 				} catch (IOException e) {
@@ -497,7 +486,7 @@ public class MulticastP2P {
 	 * @param integer
 	 * @return 
 	 */
-	private byte[] longToByte(long number) {
+	static byte[] longToByte(long number) {
         byte[] byteValue =  {
         		(byte)(number >>> 56),
         		(byte)(number >>> 48),
@@ -536,21 +525,22 @@ public class MulticastP2P {
 	 * Divide um ficheiro em chunks. (chunks devem ser armazenados de forma ORDENADA!)
 	 * 
 	 * @param fileReq: ficheiro pedido
-	 * @return Vector<byte>: vector com os varios chunks do ficheiro.
+	 * @return Vector<Chunk>: vector com os varios chunks do ficheiro.
 	 * @throws IOException
 	 */
-	private Vector<byte[]> getChunks(fileStruct fileReq) throws IOException {
+	private Vector<Chunk> getChunks(fileStruct fileReq) throws IOException {
 
-		Vector<byte[]> chunkVector = new Vector<byte[]>();
+		Vector<Chunk> chunkVector = new Vector<Chunk>();
 	
 		FileInputStream file = new FileInputStream(fileReq.completePath);
 		long fLength = fileReq.fileSize;
 		long bytesRead = 0;
 		long chunkCounter = 0;  
-		
-		
-		// get file sha
 		byte[] fileID = new byte[32];
+		
+		/*
+		 * Generates the SHA for the file
+		 */
 		try {
 			fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
 		} catch (NoSuchAlgorithmException e) {
@@ -558,42 +548,15 @@ public class MulticastP2P {
 			e.printStackTrace();
 		} 
 		
-		
-		
 		while (bytesRead != fLength) {
 			// TODO falta testar
 			byte[] fChunk =  new byte[CHUNKSIZE]; 
 			long bytes = file.read(fChunk);  
 			bytesRead += bytes;  
-			
-			
-			/* add chunk header */
-			byte[] chunkNumber = new byte[8];
-			byte[] reserved = new byte[24];
 
 			
-			System.arraycopy(longToByte(chunkCounter), 0, chunkNumber, 0, longToByte(chunkCounter).length);
-			//System.out.println(":::: " + byteToLong(chunkNumber));
-			
-			
-			/* concatenate byte arrays with header */
-			byte[] header = new byte[64];
-			
-			System.arraycopy(fileID, 0, header, 0, fileID.length);
-			System.arraycopy(chunkNumber, 0, header, 32, chunkNumber.length);
-			System.arraycopy(reserved, 0, header, 40, reserved.length);
-			
-		/*	
-			System.out.println("-> " + fileID.length);
-			System.out.println("fileID[254]:" + fileID[31] + " -ID255: " + chunkNumber[0]);
-			System.out.println("header length: " + header.length + " -header[30]:" + header[31] + " -31:" + header[32]);
-			*/
-			byte[] finalChunk = new byte[64 + CHUNKSIZE];
-			System.arraycopy(header, 0, finalChunk, 0, 64);
-			System.arraycopy(fChunk, 0, finalChunk, 64, fChunk.length);
-			
 			/* add chunk to vector */
-			chunkVector.add(finalChunk);
+			chunkVector.add(new Chunk(chunkCounter,fChunk,fileID));
 			chunkCounter++;
 		}
 		
@@ -725,61 +688,84 @@ public class MulticastP2P {
 		// Joins multicast group and creates socket
 		MulticastSocket mSocket = joinGroup(controlAddr);
 	
-		byte[] buf = new byte[512];
-		DatagramPacket receivePacket = new DatagramPacket(buf,512);
-		mSocket.receive(receivePacket);
-		String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
-	
-		final StringTokenizer st = new StringTokenizer(received); // TODO in theory, no conflicts should emerge - still to test though.
+		byte[] buf = new byte[1024];
+			DatagramPacket receivePacket = new DatagramPacket(buf,1024);
 		
-
-		if(st.nextToken().equalsIgnoreCase("GET")){ // Only parses GETs
-			consolePrint("IN: "+ received);
+		while(true){
+			mSocket.receive(receivePacket);
 			
-			// Launch send thread for each GET detected // TODO and test
-			new Thread() {
-				public void run() {
+			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
+			final StringTokenizer st = new StringTokenizer(received);
+			
+			
+			if(st.nextToken().equalsIgnoreCase("GET")){ // Only parses GETs
+				//consolePrint("IN: "+ received);
+				
+				String fileID = st.nextToken();
+				final UploadingFile file = new UploadingFile(fileID);
+				
+				// get chunk numbers
+				String chunks = st.nextToken();
+				consolePrint("chunks requested: " + chunks);
+				 
 
-					String fileID = st.nextToken();
-
+				/* chunks format: a-b; a; a,b,c,d*/ 
+				if (chunks.indexOf("-") != -1) {
 					
-					// get chunk numbers
-					String chunks = st.nextToken();
-					Vector<Long> chunksReq = new Vector<Long>(); /* vector with chunk numbers requested */
-					consolePrint("chunks requested: " + chunks);
-					 
-
-					/* chunks format: a-b; a; a,b,c,d*/ 
-					if (chunks.indexOf("-") != -1) {
-						
-						String[] firstLast = chunks.split("-");
-						
-						for (long i=Long.parseLong(firstLast[0]); i<=Long.parseLong(firstLast[1]); i++) {
-							chunksReq.add(i);
-						}
-					} 
-					else if (chunks.indexOf(",") != -1) {
-						
-						StringTokenizer cToken = new StringTokenizer(chunks, ",");
-						
-						while(cToken.hasMoreTokens()) {
-							chunksReq.add(Long.parseLong(cToken.nextToken()));
-						}
-					}
-					else {
-						chunksReq.add(Long.parseLong(chunks));
-					}
+					String[] firstLast = chunks.split("-");
 					
-					// sends chunks requested
-					try {
-						sendChunks(fileID, chunksReq);
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+					for (long i=Long.parseLong(firstLast[0]); i<=Long.parseLong(firstLast[1]); i++) {
+						file.chunksRequested.add(i);
+					}
+				} 
+				else if (chunks.indexOf(",") != -1) {
+					
+					StringTokenizer cToken = new StringTokenizer(chunks, ",");
+					
+					while(cToken.hasMoreTokens()) {
+						file.chunksRequested.add(Long.parseLong(cToken.nextToken()));
+					}
+				}
+				else {
+					file.chunksRequested.add(Long.parseLong(chunks));
+				}
+				
+				
+				if(!currentUploads.contains(file)){ // If we are not already uploading
+					
+					// Launch send thread for each new GET detected
+					new Thread() {
+						public void run() {
+
+							// sends chunks requested
+							try {
+								sendChunks(file);
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+							
+						}
+					}.start();	
+				}
+				else{
+					// Adds the requested chunks to the already uploading file
+					int index = currentUploads.indexOf(file);
+					UploadingFile existingFile = currentUploads.get(index);
+					Iterator<Long> it = file.chunksRequested.iterator();
+					Long chunkNumber = null;
+					while(it.hasNext()){
+						chunkNumber = it.next();
+						if(!existingFile.chunksRequested.contains(chunkNumber)){ // Checks to see if chunkNumber's already there
+							existingFile.chunksRequested.add(chunkNumber);
+						}
 					}
 					
 				}
-			}.start();		
+				
+				
+		
+			}
 		}
 	}
 	
@@ -791,43 +777,52 @@ public class MulticastP2P {
 	 * @param chunkNumbers
 	 * @throws IOException
 	 */
-	void sendChunks(String sha, Vector<Long> cNumbers) throws IOException { // TODO testing
+	void sendChunks(final UploadingFile file) throws IOException { // TODO testing
 		
-		fileStruct fReq= getFileByHash(sha);
-		Vector<byte[]> chunkVector= getChunks(fReq);
-		final Vector<Long> chunkNumbers = cNumbers;
-		
+		fileStruct fReq= getFileByHash(file.fileID);
+		Vector<Chunk> chunkVector= getChunks(fReq);
+				
 		// Joins multicast group and creates socket
-		MulticastSocket mSocket = joinGroup(dataAddr);
+		final MulticastSocket mSocket = joinGroup(dataAddr);
 		DatagramPacket sendPacket = null;
-		
-		Random randGenerator = new Random();
-		
 
+		Random randGenerator = new Random();
 
 		// Launch thread that verifies for repeated chunks  // TODO test and check if no sync problems occur
 		Thread checkRepeated = new Thread()  {
 			public void run() {
-				while(true) {
+				
+				byte[] buf = new byte[CHUNKSIZE+HEADERSIZE];
+				while(!file.chunksRequested.isEmpty()) {
 					// Joins multicast group and creates socket
-					MulticastSocket mSocket;
 					try {
-						mSocket = joinGroup(dataAddr);
-
-						byte[] buf = new byte[512];
-						DatagramPacket cPacket = new DatagramPacket(buf,512);
+						
+						DatagramPacket cPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
 						mSocket.receive(cPacket);
 
 						byte[] chunkData = cPacket.getData();
 
+						// Gets the chunk SHA
+						byte[] chunkSha = new byte[32];
+						System.arraycopy(chunkData, 0, chunkSha, 0, 32);
+						
 						// Gets the chunk number
 						byte[] chunkNumber = new byte[8];
 						System.arraycopy(chunkData, 32, chunkNumber, 0, 8);
-
+						
 						long packetNumber = byteToLong(chunkNumber);
-						if (chunkNumbers.contains(packetNumber)) {
-							chunkNumbers.remove(packetNumber);
-						}				
+						
+						// Converts the sha bytes to string so we can compare
+						StringBuffer sb = new StringBuffer();
+						for (int i = 0; i < 32; i++) {
+							sb.append(Integer.toString((chunkSha[i] & 0xff) + 0x100, 16).substring(1));
+						}
+						String sha = sb.toString();
+						
+						if(sha.equals(file.fileID))
+							if (file.chunksRequested.contains(packetNumber)) {
+								file.chunksRequested.remove(packetNumber);
+							}				
 
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
@@ -836,35 +831,22 @@ public class MulticastP2P {
 				}
 			}
 		};
-		
 		checkRepeated.start();
 		
-		//TODO erase between lines: just for testing
-		/*for (int i=0; i!=cNumbers.size(); i++) {
-			System.out.println("->" + cNumbers.get(i));
-		}
 		
-		Vector<Integer> tempNumbers = new Vector<Integer>();
-		for (int i=0; i!= chunkVector.size(); i++) {
-			tempNumbers.add(i);
-		}
-		/////////////////*/
-		
-		while(!chunkNumbers.isEmpty()) {
+		while(!file.chunksRequested.isEmpty()) {
 			
-			int randChunk = randGenerator.nextInt(chunkNumbers.size()); //TODO test of int/long doesn't give problems
+			int randChunk = randGenerator.nextInt(file.chunksRequested.size());
 			
-			long chunkChosen = chunkNumbers.get(randChunk);
-			byte[] chunk = chunkVector.get((int)chunkChosen);
+			long chunkChosen = file.chunksRequested.get(randChunk);
+			byte[] chunk = chunkVector.get((int)chunkChosen).getBytes();
 			
 			sendPacket = new DatagramPacket(
 					chunk, chunk.length,dataAddr);
 			
-			//consolePrint("DEBUG: Sent Data Packet.");
-			//System.out.println("cNumb: " + tempNumbers.get(randChunk));
 			mSocket.send(sendPacket);
-			chunkNumbers.remove(randChunk);
-			//tempNumbers.remove(randChunk); //TODO erase test lines
+			
+			//file.chunksRequested.remove(randChunk); // Not needed since thread that watches for repeted chunks takes care of this
 			
 			// To avoid network flood
 			try {
@@ -874,10 +856,10 @@ public class MulticastP2P {
 				e.printStackTrace();
 			}
 		}
+		// All sent, removes the file from currentUploads
+		currentUploads.remove(file);
 		
-		checkRepeated.interrupt(); //TODO check if needed or if destroyed automatically
-		
-		
+			
 	}
 	
 	/**
@@ -898,7 +880,7 @@ public class MulticastP2P {
 			try {
 				dataSocket = joinGroup(dataAddr); // Joins the data group to receive the files;
 				mSocket = joinGroup(controlAddr); // Joins the control group to send the get command;
-				dataSocket.setSoTimeout(500); // Makes the socket timeout after 500 ms
+				dataSocket.setSoTimeout(5000); // Makes the socket timeout after 500 ms
 				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -916,7 +898,7 @@ public class MulticastP2P {
 					 * the last added chunk.
 					 * */
 					long elapsedTime = System.currentTimeMillis()-newFile.timeLastAdded;
-					if(((newFile.requestedChunks <= 0) || (elapsedTime > 1000)) && !newFile.isDone()){
+					if(((newFile.requestedChunks < 1) || (elapsedTime > 10000)) && !newFile.isDone()){
 						getStr = "GET " + sr.sha + " "+ newFile.getSome(); // creates the message
 						getPacket = new DatagramPacket(
 								getStr.getBytes(), getStr.length(),controlAddr);
