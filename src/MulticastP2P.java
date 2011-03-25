@@ -4,6 +4,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.File;
 import java.net.*;
+import java.nio.channels.Selector;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -821,11 +822,19 @@ public class MulticastP2P {
 			sendPacket = new DatagramPacket(
 					chunk, chunk.length,dataAddr);
 			
-			consolePrint("DEBUG: Sent Data Packet.");
+			//consolePrint("DEBUG: Sent Data Packet.");
 			//System.out.println("cNumb: " + tempNumbers.get(randChunk));
 			mSocket.send(sendPacket);
 			chunkNumbers.remove(randChunk);
 			//tempNumbers.remove(randChunk); //TODO erase test lines
+			
+			// To avoid network flood
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -835,73 +844,109 @@ public class MulticastP2P {
 	void getFile(int choice){
 		SearchResult sr = currentSearchResults.results.elementAt(choice);
 		if(sr!= null){
-			long chunks = (int) ((sr.filesize-1)/CHUNKSIZE); // TODO: possiveis problemas com long to int; pode faltar um chunk
-			
-			// TODO: Constructs get message and sends it				
-			
-			System.out.println("chunks: " + (int)Math.ceil((sr.filesize-1)/CHUNKSIZE));
-			String getStr = "GET " + sr.sha + " 0-" + chunks;
-			
+			long chunks = (int) ((sr.filesize-1)/CHUNKSIZE)+1; // calculates total chunks( max chunk + 1)
+			String getStr = "GET " + sr.sha + " 0-" + (chunks-1); // creates the message
+			DownloadingFile newFile = new DownloadingFile(chunks,sr.filename,sr.sha); // creates the structure to save the downloading file
+			//DownloadingFile newFile = new DownloadingFile(chunks,"output.txt",sr.sha); // creates the structure to save the downloading file
+			MulticastSocket dataSocket = null;
+			MulticastSocket mSocket = null;
+			DatagramPacket getPacket = null;
 			// Sends the get message
 			try {
-				MulticastSocket mSocket = joinGroup(controlAddr);
-				DatagramPacket getPacket = new DatagramPacket(
+				dataSocket = joinGroup(dataAddr); // Joins the data group to receive the files;
+				mSocket = joinGroup(controlAddr); // Joins the control group to send the get command;
+				dataSocket.setSoTimeout(10000); // Makes the socket timeout after 10000 ms
+				
+				getPacket = new DatagramPacket(
 						getStr.getBytes(), getStr.length(),controlAddr);
 				mSocket.send(getPacket);
+				
 				consolePrint("OUT: "+ getStr);
+				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
+			// Waits for chunks
 			byte[] buf = new byte[CHUNKSIZE+HEADERSIZE];
 			DatagramPacket dataPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
-			try {
-				MulticastSocket dataSocket = joinGroup(dataAddr);
-				
-				System.out.println("test1");
-				//DownloadingFile newFile = new DownloadingFile(1, "a");
-				System.out.println("test2");
-				//do {
+			try {	
+				do {
+					
+					
+					try{
 					dataSocket.receive(dataPacket);
+					}catch (SocketTimeoutException e){
+						consolePrint("Download Stalled. Trying again.");
+						getStr = "GET " + sr.sha + " "+ newFile.missingStr(); // creates the message
+						getPacket = new DatagramPacket(
+								getStr.getBytes(), getStr.length(),controlAddr);
+						mSocket.send(getPacket);
+					}
 					
 					byte[] receivedData = dataPacket.getData();
-					/* testar
-					// registers chunk camps
-					byte[] cSha = new byte[32];
-					System.arraycopy(receivedData, 0, cSha, 0, 32);
 					
-					byte[] cNumber = new byte[8];
-					System.arraycopy(receivedData, 32, cNumber, 0, 8);
-					
-					byte[] cData = new byte[receivedData.length-64];
-					System.arraycopy(receivedData, 64, cData, 0, receivedData.length-64);
-					//System.out.println(">>" + byteToLong(cNumber) + "|" + byteToLong(longToByte(8)));
-					
-					newFile.addChunk(byteToLong(cNumber), cData, cSha);
-					*/
-					
-					// converts the sha bytes to string so we can compare
-					StringBuffer sb = new StringBuffer();
-					for (int i = 0; i < 32; i++) {
-						sb.append(Integer.toString((receivedData[i] & 0xff) + 0x100, 16).substring(1));
-					} 
-					String sha = sb.toString();
-					
-					
-					consolePrint("DEBUG: Received data packet with SHA: " + sha);
-					consolePrint("DEBU0: " + fileArray.get(0).sha);
-					consolePrint("DEBU1: " + fileArray.get(1).sha);
-					consolePrint("DEBU2: " + fileArray.get(2).sha);
-				//} while(!newFile.isDone());
+					if(receivedData != null){ // only if we received data
+						// registers chunk camps
+						
+						//Does not work.
+						/*
+						byte[] cSha = new byte[32];
+						System.arraycopy(receivedData, 0, cSha, 0, 32);
+						String sha = cSha.toString();
+						*/
+						
+	
+						// This metod works.
+						// Converts the sha bytes to string so we can compare
+						StringBuffer sb = new StringBuffer();
+						for (int i = 0; i < 32; i++) {
+							sb.append(Integer.toString((receivedData[i] & 0xff) + 0x100, 16).substring(1));
+						} 
+						String sha = sb.toString();
+						
+						if(sha.equals(newFile.shaStr)){ // Compares the SHA with the file SHA
+						
+							// Gets the chunk number
+							byte[] cNumber = new byte[8];
+							System.arraycopy(receivedData, 32, cNumber, 0, 8);
+							
+							// Gets the hashCheck
+							byte[] cHashCheck = new byte[24];
+							System.arraycopy(receivedData, 40, cHashCheck, 0, 24);
+							
+							
+							//Gets the data
+							byte[] cData = new byte[CHUNKSIZE];
+							System.arraycopy(receivedData, 64, cData, 0, CHUNKSIZE);
+							//System.out.println(">>" + byteToLong(cNumber) + "|" + byteToLong(longToByte(8)));
+							
+							newFile.addChunk(byteToLong(cNumber), cData, cHashCheck );
+							
+							consolePrint("DEBUG: Received chunk "+ byteToLong(cNumber)+" | SHA: " + sha);
+							System.out.println(newFile.missingStr());
+						}
+					}
+
+				} while(!newFile.isDone());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
-					
-					
-			// TODO Call another thread to get the packets.
+			
+			// TODO implement selector to retry download if stalled;
+			
+			consolePrint("DOWNLOAD COMPLETED!");
+			try {
+				newFile.writeToDisk();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			
 		}	
 	}
 	
