@@ -22,10 +22,12 @@ public class DownloadingFile {
 		//this.shaStr = sha;
 		this.filename = filename;
 		
+		// TODO crasha aqui por alguma razao
 		for(long i = 0; i <totalChunks; i++){
 			missingChunks.add(new Long(i));
-			chunks.setSize((int) totalChunks);
+			chunks.setSize((int)totalChunks); 
 		}
+		System.out.println("acabou teste");
 	};
 	
 	/***
