@@ -33,22 +33,51 @@ public class Window {
 	/**
 	 * Launch the application.
 	 */
-	public static void main(String[] args) {
+	public static void main(final String[] args) { //TODO see if final ok in arguments
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
+					
+					//TODO test and add sha option -p Path -i IP -c CONTROLPORT -d DATAPORT
+					// defaults: 
+					String path = null; 
+					String ip = "224.0.2.10";
+					int controlPort = 8967;
+					int dataPort = 8966;
+					
+					for (int i=1; i!=args.length; i++) {
+						if (args[i].equalsIgnoreCase("-p")) {
+							path = args[i+1];
+						}
+						
+						else if (args[i].equalsIgnoreCase("-i")) {
+							ip = args[i+1];
+						}
+						
+						else if (args[i].equalsIgnoreCase("-c")) {
+							controlPort = Integer.parseInt(args[i+1]);
+						}
+						
+						else if (args[i].equalsIgnoreCase("-d")) {
+							dataPort = Integer.parseInt(args[i+1]);
+						}
+						
+						else {
+							System.out.println("Usage: MulticastP2P -p Path -i IP -c CONTROLPORT -d DATAPORT");
+							System.exit(-1);
+						}
+					}
+					
+					
 					Window window = new Window();
-					window.frmMulticastPp.setVisible(true);
+					window.frmMulticastPp.setVisible(true);					
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 		});
-		
-
-		
-		
 	}
+
 
 	/**
 	 * Create the application.

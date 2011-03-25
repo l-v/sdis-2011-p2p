@@ -548,6 +548,18 @@ public class MulticastP2P {
 		long bytesRead = 0;
 		long chunkCounter = 0;  
 		
+		
+		// get file sha
+		byte[] fileID = new byte[32];
+		try {
+			fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		
+		
+		
 		while (bytesRead != fLength) {
 			// TODO falta testar
 			byte[] fChunk =  new byte[CHUNKSIZE]; 
@@ -556,17 +568,9 @@ public class MulticastP2P {
 			
 			
 			/* add chunk header */
-			byte[] fileID = new byte[32];
 			byte[] chunkNumber = new byte[8];
 			byte[] reserved = new byte[24];
-			
-			try {
-				fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
-			} catch (NoSuchAlgorithmException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} 
-			
+
 			
 			System.arraycopy(longToByte(chunkCounter), 0, chunkNumber, 0, longToByte(chunkCounter).length);
 			//System.out.println(":::: " + byteToLong(chunkNumber));
