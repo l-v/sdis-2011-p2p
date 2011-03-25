@@ -10,15 +10,16 @@ import java.util.*;
  */
 public class DownloadingFile {
 	final long totalChunks;
-	final byte[] sha;
+	//final byte[] sha;
+	//final String shaStr;
 	String filename;
 	
 	Vector<Chunk> chunks;
 	Vector<Long> missingChunks;
 	
-	public DownloadingFile(long totalChunks,byte[] sha, String filename){
+	public DownloadingFile(long totalChunks/*,byte[] sha*/, String filename){
 		this.totalChunks = totalChunks;
-		this.sha = sha;
+		//this.shaStr = sha;
 		this.filename = filename;
 		
 		for(long i = 0; i <totalChunks; i++){

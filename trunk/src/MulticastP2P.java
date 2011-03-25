@@ -120,14 +120,6 @@ public class MulticastP2P {
 	 * Stores information about files
 	 */
 	private class fileStruct {
-		/* The size of the chunks must be 1024 bytes plus protocol headers. 
-		 * The chunk must be numbered from 0 to C 
-		 * where C is given by int( (S-1)/1024) 
-		 * where S is the file's size in bytes. 
-		 * The control messages are always strings 
-		 * while the data messages are binary packets.  */
-
-		// TODO 
 		String sha;
 		String fileName;
 		long fileSize;
@@ -504,12 +496,16 @@ public class MulticastP2P {
 	 * @param integer
 	 * @return 
 	 */
-	private byte[] intToByte(int integer) {
+	private byte[] longToByte(long number) {
         byte[] byteValue =  {
-                (byte)(integer >>> 24),
-                (byte)(integer >>> 16),
-                (byte)(integer >>> 8),
-                (byte)integer};
+        		(byte)(number >>> 56),
+        		(byte)(number >>> 48),
+        		(byte)(number >>> 40),
+        		(byte)(number >>> 32),
+                (byte)(number >>> 24),
+                (byte)(number >>> 16),
+                (byte)(number >>> 8),
+                (byte)number};
         
         return byteValue;
 	}
@@ -520,13 +516,17 @@ public class MulticastP2P {
 	 * @param byteValue
 	 * @return 
 	 */
-	private int byteToInt(byte[] byteValue) {
-		int integerValue = (byteValue[0] << 24)
-						+ ((byteValue[1] & 0xFF) << 16) 
-						+ ((byteValue[2] & 0xFF) << 8) 
-						+ (byteValue[3] & 0xFF);
+	private long byteToLong(byte[] byteValue) {
+		long number = ((byteValue[0]& 0xFF) << 56)
+						+ ((byteValue[1]& 0xFF) << 48)
+						+ ((byteValue[2]& 0xFF) << 40)
+						+ ((byteValue[3]& 0xFF) << 32)
+						+ ((byteValue[4]& 0xFF) << 24)
+						+ ((byteValue[5] & 0xFF) << 16) 
+						+ ((byteValue[6] & 0xFF) << 8) 
+						+ (byteValue[7] & 0xFF);
 		
-		return integerValue;
+		return number;
 	}
 
 
@@ -545,7 +545,7 @@ public class MulticastP2P {
 		FileInputStream file = new FileInputStream(fileReq.completePath);
 		long fLength = fileReq.fileSize;
 		long bytesRead = 0;
-		int chunkCounter = 0;  // TODO check if INT chunk counter is adequated
+		long chunkCounter = 0;  // TODO check if INT chunk counter is adequated
 
 		while (bytesRead != fLength) {
 			// TODO falta testar
@@ -565,9 +565,10 @@ public class MulticastP2P {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} 
-						
-			System.arraycopy(intToByte(chunkCounter), 0, chunkNumber, 0, intToByte(chunkCounter).length);
-			//System.out.println(":::: " + chunkNumber.length);
+			
+			
+			System.arraycopy(longToByte(chunkCounter), 0, chunkNumber, 0, longToByte(chunkCounter).length);
+			//System.out.println(":::: " + byteToLong(chunkNumber));
 			
 			
 			/* concatenate byte arrays with header */
@@ -598,8 +599,6 @@ public class MulticastP2P {
 		consolePrint("fLength: " + fLength);
 		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
 		*/
-		
-		//buildFromChunks("fileHere.txt", fLength, chunkVector);
 		
 
 		return chunkVector;
@@ -710,7 +709,11 @@ public class MulticastP2P {
 		}
 	}
 	
-	
+	/***
+	 * Sends requested file through data port.
+	 * 
+	 * @throws IOException
+	 */
 	void sendFile() throws IOException {
 		
 		// Joins multicast group and creates socket
@@ -761,7 +764,6 @@ public class MulticastP2P {
 						chunksReq.add(Long.parseLong(chunks));
 					}
 					
-					
 					// sends chunks requested
 					try {
 						sendChunks(fileID, chunksReq);
@@ -795,6 +797,18 @@ public class MulticastP2P {
 		
 		Random randGenerator = new Random();
 		
+	
+		
+		//TODO erase between lines: just for testing
+		/*for (int i=0; i!=cNumbers.size(); i++) {
+			System.out.println("->" + cNumbers.get(i));
+		}
+		
+		Vector<Integer> tempNumbers = new Vector<Integer>();
+		for (int i=0; i!= chunkVector.size(); i++) {
+			tempNumbers.add(i);
+		}
+		/////////////////*/
 		
 		while(!chunkNumbers.isEmpty()) {
 			
@@ -806,10 +820,11 @@ public class MulticastP2P {
 			sendPacket = new DatagramPacket(
 					chunk, chunk.length,dataAddr);
 			
-			consolePrint("DEBUG: Sent Data Packet");
-			
+			consolePrint("DEBUG: Sent Data Packet.");
+			//System.out.println("cNumb: " + tempNumbers.get(randChunk));
 			mSocket.send(sendPacket);
 			chunkNumbers.remove(randChunk);
+			//tempNumbers.remove(randChunk); //TODO erase test lines
 		}
 	}
 	
@@ -819,8 +834,11 @@ public class MulticastP2P {
 	void getFile(int choice){
 		SearchResult sr = currentSearchResults.results.elementAt(choice);
 		if(sr!= null){
-			int chunks = (int) ((sr.filesize-1)/CHUNKSIZE); // TODO: possiveis problemas com long to int
-			// TODO: Constructs get message and sends it
+			long chunks = (int) ((sr.filesize-1)/CHUNKSIZE); // TODO: possiveis problemas com long to int; pode faltar um chunk
+			
+			// TODO: Constructs get message and sends it				
+			
+			System.out.println("chunks: " + (int)Math.ceil((sr.filesize-1)/CHUNKSIZE));
 			String getStr = "GET " + sr.sha + " 0-" + chunks;
 			
 			// Sends the get message
@@ -839,17 +857,38 @@ public class MulticastP2P {
 			DatagramPacket dataPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
 			try {
 				MulticastSocket dataSocket = joinGroup(dataAddr);
-				dataSocket.receive(dataPacket);
 				
-				byte[] receivedData = dataPacket.getData();
-				// converts the sha bytes to string so we can compare
-				StringBuffer sb = new StringBuffer();
-				for (int i = 0; i < 32; i++) {
-					sb.append(Integer.toString((receivedData[i] & 0xff) + 0x100, 16).substring(1));
-				} 
-				String sha = sb.toString();
-				
-				consolePrint("DEBUG: Received data packet with SHA: " + sha);
+				//DownloadingFile newFile = new DownloadingFile(chunks, sr.filename);
+				//do {
+					dataSocket.receive(dataPacket);
+					
+					byte[] receivedData = dataPacket.getData();
+					/* testar
+					// registers chunk camps
+					byte[] cSha = new byte[32];
+					System.arraycopy(receivedData, 0, cSha, 0, 32);
+					
+					byte[] cNumber = new byte[8];
+					System.arraycopy(receivedData, 32, cNumber, 0, 8);
+					
+					byte[] cData = new byte[receivedData.length-64];
+					System.arraycopy(receivedData, 64, cData, 0, receivedData.length-64);
+					//System.out.println(">>" + byteToLong(cNumber) + "|" + byteToLong(longToByte(8)));
+					
+					newFile.addChunk(byteToLong(cNumber), cData, cSha);
+					*/
+					
+					// converts the sha bytes to string so we can compare
+					StringBuffer sb = new StringBuffer();
+					for (int i = 0; i < 32; i++) {
+						sb.append(Integer.toString((receivedData[i] & 0xff) + 0x100, 16).substring(1));
+					} 
+					String sha = sb.toString();
+					
+					
+					consolePrint("DEBUG: Received data packet with SHA: " + sha);
+					
+				//} while(!newFile.isDone());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
