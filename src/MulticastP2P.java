@@ -577,6 +577,7 @@ public class MulticastP2P {
 			System.arraycopy(fileID, 0, header, 0, fileID.length);
 			System.arraycopy(chunkNumber, 0, header, 32, chunkNumber.length);
 			System.arraycopy(reserved, 0, header, 40, reserved.length);
+			
 		/*	
 			System.out.println("-> " + fileID.length);
 			System.out.println("fileID[254]:" + fileID[31] + " -ID255: " + chunkNumber[0]);
@@ -587,7 +588,7 @@ public class MulticastP2P {
 			System.arraycopy(fChunk, 0, finalChunk, 64, fChunk.length);
 			
 			/* add chunk to vector */
-			chunkVector.add(fChunk);
+			chunkVector.add(finalChunk);
 			chunkCounter++;
 		}
 		
@@ -858,7 +859,9 @@ public class MulticastP2P {
 			try {
 				MulticastSocket dataSocket = joinGroup(dataAddr);
 				
-				//DownloadingFile newFile = new DownloadingFile(chunks, sr.filename);
+				System.out.println("test1");
+				//DownloadingFile newFile = new DownloadingFile(1, "a");
+				System.out.println("test2");
 				//do {
 					dataSocket.receive(dataPacket);
 					
@@ -887,7 +890,9 @@ public class MulticastP2P {
 					
 					
 					consolePrint("DEBUG: Received data packet with SHA: " + sha);
-					
+					consolePrint("DEBU0: " + fileArray.get(0).sha);
+					consolePrint("DEBU1: " + fileArray.get(1).sha);
+					consolePrint("DEBU2: " + fileArray.get(2).sha);
 				//} while(!newFile.isDone());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
