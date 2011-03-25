@@ -11,18 +11,21 @@ import java.util.*;
 public class DownloadingFile {
 	final long totalChunks;
 	//final byte[] sha;
-	//final String shaStr;
+	final String shaStr;
 	String filename;
 	
 	Vector<Chunk> chunks;
 	Vector<Long> missingChunks;
 	
-	public DownloadingFile(long totalChunks/*,byte[] sha*/, String filename){
+	public DownloadingFile(long totalChunks/*,byte[] sha*/, String filename, String shaStr){
+		
+		chunks = new Vector<Chunk>();
+		missingChunks = new Vector<Long>();
+		
 		this.totalChunks = totalChunks;
-		//this.shaStr = sha;
+		this.shaStr = shaStr;
 		this.filename = filename;
 		
-		// TODO crasha aqui por alguma razao
 		for(long i = 0; i <totalChunks; i++){
 			missingChunks.add(new Long(i));
 			chunks.setSize((int)totalChunks); 
@@ -42,9 +45,11 @@ public class DownloadingFile {
 		FileOutputStream outFile =  new FileOutputStream( filename );  
 		
 		// appends all data bytes and writes to output file
-		for (int i =0 ; i!=chunks.size(); i++) {
+		for (int i =0 ; i < totalChunks; i++) {
 			outFile.write(chunks.get(i).data);
-		} 
+			System.out.println("Wrote to disk chunk " + i);
+		}
+		outFile.close();
 	};
 	
 	Chunk getChunk(long chunkNumber){
@@ -52,11 +57,12 @@ public class DownloadingFile {
 		return null;
 	};
 	
-	boolean addChunk(long chunkNumber, byte[] data, byte[] hash){
+	boolean addChunk(long chunkNumber, byte[] data, byte[] hashCheck){
 		if (hasChunk(chunkNumber))
 			return false;
 		else{
-			chunks.add((int) chunkNumber,new Chunk((int) chunkNumber, data, hash));
+			chunks.set((int) chunkNumber,new Chunk((int) chunkNumber, data, hashCheck));
+			missingChunks.removeElement(new Long(chunkNumber));
 			return true;
 		}
 	};
@@ -67,6 +73,17 @@ public class DownloadingFile {
 		else
 			return false;
 	};
+	
+	String missingStr(){
+		String chunksStr = null;
+		Iterator<Long> it = missingChunks.iterator();
+		if(it.hasNext())
+			chunksStr = it.next().toString(); // adds the first element
+		while(it.hasNext()){
+			chunksStr = chunksStr + "," + it.next().toString(); // adds the rest
+		}
+		return chunksStr;
+	}
 	
 	/**
 	 * Checks if we already downloaded a chunk with chunkNumber

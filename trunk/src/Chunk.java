@@ -6,12 +6,12 @@
 public class Chunk {
 	long number;
 	byte[] data;
-	byte[] hash;
+	byte[] hashCheck;
 	
-	public Chunk(long number, byte[] data, byte[] hash) {
+	public Chunk(long number, byte[] data, byte[] hashCheck) {
 		this.number = number;
 		this.data = data;
-		this.hash = hash;
+		this.hashCheck = hashCheck;
 	}
 
 }
