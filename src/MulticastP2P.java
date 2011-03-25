@@ -448,7 +448,7 @@ public class MulticastP2P {
 	 * @param chunkSize: default size of the chunks in Bytes.
 	 * @throws IOException 
 	 */
-	void indexFiles() 
+	public void indexFiles() 
 	{
 		File folder = new File(localDirectory);
 		if (!folder.exists()) {
