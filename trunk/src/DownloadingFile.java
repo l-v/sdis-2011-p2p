@@ -9,9 +9,8 @@ import java.util.*;
  *
  */
 public class DownloadingFile {
-	public final static long SOMECHUNKS = 10; // Maximum number of chunks we get at a time
+	public final static long SOMECHUNKS = 30; // Maximum number of chunks we get at a time
 	final long totalChunks;
-	//final byte[] sha;
 	final String shaStr;
 	String filename;
 	
@@ -38,7 +37,7 @@ public class DownloadingFile {
 	};
 	
 	/***
-	 * Recebe o nome do ficheiro a escrever e a lista de data chunks ordenados (sem header)
+	 * Writes the file to disk, with fileName)
 	 * 
 	 * @param fileName
 	 * @param chunksData
