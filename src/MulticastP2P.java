@@ -883,23 +883,18 @@ public class MulticastP2P {
 		SearchResult sr = currentSearchResults.results.elementAt(choice);
 		if(sr!= null){
 			long chunks = (int) ((sr.filesize-1)/CHUNKSIZE)+1; // calculates total chunks( max chunk + 1)
-			String getStr = "GET " + sr.sha + " 0-" + (chunks-1); // creates the message
+			//String getStr = "GET " + sr.sha + " 0-" + (chunks-1); // creates the message
+			String getStr = null;
+			
 			DownloadingFile newFile = new DownloadingFile(chunks,sr.filename,sr.sha); // creates the structure to save the downloading file
-			//DownloadingFile newFile = new DownloadingFile(chunks,"output.txt",sr.sha); // creates the structure to save the downloading file
 			MulticastSocket dataSocket = null;
 			MulticastSocket mSocket = null;
 			DatagramPacket getPacket = null;
-			// Sends the get message
+
 			try {
 				dataSocket = joinGroup(dataAddr); // Joins the data group to receive the files;
 				mSocket = joinGroup(controlAddr); // Joins the control group to send the get command;
-				dataSocket.setSoTimeout(10000); // Makes the socket timeout after 10000 ms
-				
-				getPacket = new DatagramPacket(
-						getStr.getBytes(), getStr.length(),controlAddr);
-				mSocket.send(getPacket);
-				
-				consolePrint("OUT: "+ getStr);
+				dataSocket.setSoTimeout(500); // Makes the socket timeout after 500 ms
 				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -912,15 +907,27 @@ public class MulticastP2P {
 			try {	
 				do {
 					
+					/* 
+					 * Get some chunks if the chunk queue is empty or enough time has passed since
+					 * the last added chunk.
+					 * */
+					long elapsedTime = System.currentTimeMillis()-newFile.timeLastAdded;
+					if(((newFile.requestedChunks <= 0) || (elapsedTime > 1000)) && !newFile.isDone()){
+						getStr = "GET " + sr.sha + " "+ newFile.getSome(); // creates the message
+						getPacket = new DatagramPacket(
+								getStr.getBytes(), getStr.length(),controlAddr);
+						mSocket.send(getPacket);
+						consolePrint("OUT: "+ getStr);
+					}
 					
 					try{
 					dataSocket.receive(dataPacket);
 					}catch (SocketTimeoutException e){
-						consolePrint("Download Stalled. Trying again.");
-						getStr = "GET " + sr.sha + " "+ newFile.missingStr(); // creates the message
-						getPacket = new DatagramPacket(
-								getStr.getBytes(), getStr.length(),controlAddr);
-						mSocket.send(getPacket);
+						consolePrint("Download stalled: received no data.");
+//						getStr = "GET " + sr.sha + " "+ newFile.missingStr(); // creates the message
+//						getPacket = new DatagramPacket(
+//								getStr.getBytes(), getStr.length(),controlAddr);
+//						mSocket.send(getPacket);
 					}
 					
 					byte[] receivedData = dataPacket.getData();
@@ -963,9 +970,12 @@ public class MulticastP2P {
 							newFile.addChunk(byteToLong(cNumber), cData, cHashCheck );
 							
 							consolePrint("DEBUG: Received chunk "+ byteToLong(cNumber)+" | SHA: " + sha);
+							
 							System.out.println(newFile.missingStr());
 						}
 					}
+					
+
 
 				} while(!newFile.isDone());
 			} catch (IOException e) {

@@ -9,6 +9,7 @@ import java.util.*;
  *
  */
 public class DownloadingFile {
+	public final static long SOMECHUNKS = 10; // Maximum number of chunks we get at a time
 	final long totalChunks;
 	//final byte[] sha;
 	final String shaStr;
@@ -16,6 +17,8 @@ public class DownloadingFile {
 	
 	Vector<Chunk> chunks;
 	Vector<Long> missingChunks;
+	long requestedChunks; // Saves the size of the last batch of chunks requested.
+	long timeLastAdded; // Time last added chunk;
 	
 	public DownloadingFile(long totalChunks/*,byte[] sha*/, String filename, String shaStr){
 		
@@ -30,7 +33,8 @@ public class DownloadingFile {
 			missingChunks.add(new Long(i));
 			chunks.setSize((int)totalChunks); 
 		}
-		System.out.println("acabou teste");
+		requestedChunks = 0;
+		timeLastAdded = 0;
 	};
 	
 	/***
@@ -63,6 +67,8 @@ public class DownloadingFile {
 		else{
 			chunks.set((int) chunkNumber,new Chunk((int) chunkNumber, data, hashCheck));
 			missingChunks.removeElement(new Long(chunkNumber));
+			requestedChunks--;
+			timeLastAdded = System.currentTimeMillis();
 			return true;
 		}
 	};
@@ -74,6 +80,10 @@ public class DownloadingFile {
 			return false;
 	};
 	
+	/**
+	 * Prints the complete missing chunks
+	 * @deprecated outputs too long of a string.
+	 */
 	String missingStr(){
 		String chunksStr = null;
 		Iterator<Long> it = missingChunks.iterator();
@@ -84,6 +94,29 @@ public class DownloadingFile {
 		}
 		return chunksStr;
 	}
+	
+	/**
+	 * Creates a string with the numbers of 
+	 * some chunks from the missingChunks pool
+	 * @return 
+	 */
+	String getSome(){
+		String chunksStr = null;
+		Iterator<Long> it = missingChunks.iterator();
+		if(it.hasNext()){
+			chunksStr = it.next().toString(); // adds the first element
+			requestedChunks = 1;
+		}
+		long counter = SOMECHUNKS;
+		while(it.hasNext() && counter > 0){
+			chunksStr = chunksStr + "," + it.next().toString(); // adds the rest
+			counter--;
+			requestedChunks++;
+		}
+		return chunksStr;
+		
+	}
+	
 	
 	/**
 	 * Checks if we already downloaded a chunk with chunkNumber
@@ -98,5 +131,6 @@ public class DownloadingFile {
 		else
 			return false;
 	};
+	
 
 }
