@@ -546,8 +546,8 @@ public class MulticastP2P {
 		FileInputStream file = new FileInputStream(fileReq.completePath);
 		long fLength = fileReq.fileSize;
 		long bytesRead = 0;
-		long chunkCounter = 0;  // TODO check if INT chunk counter is adequated
-
+		long chunkCounter = 0;  
+		
 		while (bytesRead != fLength) {
 			// TODO falta testar
 			byte[] fChunk =  new byte[CHUNKSIZE]; 
@@ -602,7 +602,7 @@ public class MulticastP2P {
 		System.out.print("Bytes total: " + bytesRead + "\tnChunks: " + chunkVector.size());
 		*/
 		
-
+		file.close();
 		return chunkVector;
 	}
 	
@@ -791,7 +791,7 @@ public class MulticastP2P {
 		
 		fileStruct fReq= getFileByHash(sha);
 		Vector<byte[]> chunkVector= getChunks(fReq);
-		Vector<Long> chunkNumbers = cNumbers;
+		final Vector<Long> chunkNumbers = cNumbers;
 		
 		// Joins multicast group and creates socket
 		MulticastSocket mSocket = joinGroup(dataAddr);
@@ -799,7 +799,41 @@ public class MulticastP2P {
 		
 		Random randGenerator = new Random();
 		
-	
+
+
+		// Launch thread that verifies for repeated chunks  // TODO test and check if no sync problems occur
+		Thread checkRepeated = new Thread()  {
+			public void run() {
+				while(true) {
+					// Joins multicast group and creates socket
+					MulticastSocket mSocket;
+					try {
+						mSocket = joinGroup(dataAddr);
+
+						byte[] buf = new byte[512];
+						DatagramPacket cPacket = new DatagramPacket(buf,512);
+						mSocket.receive(cPacket);
+
+						byte[] chunkData = cPacket.getData();
+
+						// Gets the chunk number
+						byte[] chunkNumber = new byte[8];
+						System.arraycopy(chunkData, 32, chunkNumber, 0, 8);
+
+						long packetNumber = byteToLong(chunkNumber);
+						if (chunkNumbers.contains(packetNumber)) {
+							chunkNumbers.remove(packetNumber);
+						}				
+
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+		};
+		
+		checkRepeated.start();
 		
 		//TODO erase between lines: just for testing
 		/*for (int i=0; i!=cNumbers.size(); i++) {
@@ -836,6 +870,10 @@ public class MulticastP2P {
 				e.printStackTrace();
 			}
 		}
+		
+		checkRepeated.interrupt(); //TODO check if needed or if destroyed automatically
+		
+		
 	}
 	
 	/**
