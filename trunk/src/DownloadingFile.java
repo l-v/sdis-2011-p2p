@@ -34,7 +34,7 @@ public class DownloadingFile {
 			chunks.setSize((int)totalChunks); 
 		}
 		requestedChunks = 0;
-		timeLastAdded = 0;
+		timeLastAdded = System.currentTimeMillis();
 	};
 	
 	/***
