@@ -26,49 +26,59 @@ public class Window {
 	private JFrame frmMulticastPp;
 	private JTextField textFieldSearch;
 	private JButton btnSearch;
+	private JButton btnRefresh;
 	private JList listResults;
 	MulticastP2P p2p;
 
+	static // default values
+	String path = "./files"; 
+	static String ip = "224.0.2.10";
+	static int controlPort = 8967;
+	static int dataPort = 8966;
+	static String hash = "SHA-256";
 
 	/**
 	 * Launch the application.
 	 */
 	public static void main(final String[] args) { //TODO see if final ok in arguments
+
+		//arguments:  -p Path -i IP -c CONTROLPORT -d DATAPORT -h HashType
+		if (args.length%2 != 0) {
+			System.out.println("Usage: MulticastP2P -p Path -i IP -c CONTROLPORT -d DATAPORT -h HashType");
+		}
+
+
+		for (int i=0; i!=args.length; i+=2) {
+			if (args[i].equalsIgnoreCase("-p")) {
+				path = args[i+1];
+			}
+
+			else if (args[i].equalsIgnoreCase("-i")) {
+				ip = args[i+1];
+			}
+
+			else if (args[i].equalsIgnoreCase("-c")) {
+				controlPort = Integer.parseInt(args[i+1]);
+			}
+
+			else if (args[i].equalsIgnoreCase("-d")) {
+				dataPort = Integer.parseInt(args[i+1]);
+			}
+
+			else if (args[i].equalsIgnoreCase("-h")) {
+				hash = args[i+1];
+			}
+
+			else {
+				System.out.println("Usage: MulticastP2P -p Path -i IP -c CONTROLPORT -d DATAPORT -h HashType");
+				System.exit(-1);
+			}
+		}
+
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					
-					//TODO test and add sha option -p Path -i IP -c CONTROLPORT -d DATAPORT
-					// defaults: 
-					String path = null; 
-					String ip = "224.0.2.10";
-					int controlPort = 8967;
-					int dataPort = 8966;
-					
-					for (int i=1; i!=args.length; i++) {
-						if (args[i].equalsIgnoreCase("-p")) {
-							path = args[i+1];
-						}
-						
-						else if (args[i].equalsIgnoreCase("-i")) {
-							ip = args[i+1];
-						}
-						
-						else if (args[i].equalsIgnoreCase("-c")) {
-							controlPort = Integer.parseInt(args[i+1]);
-						}
-						
-						else if (args[i].equalsIgnoreCase("-d")) {
-							dataPort = Integer.parseInt(args[i+1]);
-						}
-						
-						else {
-							System.out.println("Usage: MulticastP2P -p Path -i IP -c CONTROLPORT -d DATAPORT");
-							System.exit(-1);
-						}
-					}
-					
-					
+
 					Window window = new Window();
 					window.frmMulticastPp.setVisible(true);					
 				} catch (Exception e) {
@@ -84,9 +94,8 @@ public class Window {
 	 */
 	public Window() {
 		p2p = new MulticastP2P();
-		p2p.start();
+		p2p.start(path, ip, controlPort, dataPort, hash);
 		initialize();
-
 
 		
 	}
@@ -157,6 +166,22 @@ public class Window {
 		btnSearch.setBounds(325, 10, 89, 23);
 		frmMulticastPp.getContentPane().add(btnSearch);
 	
+		// refresh button
+		btnRefresh = new JButton("Refresh");
+		btnRefresh.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				btnGet.setEnabled(true);
+				new Thread() {
+					public void run() {
+						p2p.indexFiles();
+					}
+				}.start(); // Starts a thread that indexes local files again
+			}
+		});
+		btnRefresh.setBounds(425, 10, 89, 23);
+		frmMulticastPp.getContentPane().add(btnRefresh);
+		
+		
 		
 		JScrollPane scrollPaneResults = new JScrollPane(listResults);
 		scrollPaneResults.setBounds(10, 61, 627, 145);

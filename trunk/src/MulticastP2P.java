@@ -32,8 +32,12 @@ public class MulticastP2P {
 	DownloadingFile currentDownload;
 	
 	private  Vector<fileStruct> fileArray;
-	
 	Vector<UploadingFile> currentUploads; // All the files being uploaded
+	
+	String hashType;
+	String localDirectory;
+	
+	private boolean DEBUG = true;
 
 	
 	/**
@@ -216,10 +220,7 @@ public class MulticastP2P {
 	 * 
 	 * args = <>
 	 */
-	
-	//TODO -p Path -i IP -c CONTROLPORT -d DATAPORT
-	
-	public void start(){
+	public void start(String path, String ip, int controlPort, int dataPort, String hash){
 		
 		/* Check that native byte order is little_endian */
 		/* 
@@ -229,28 +230,28 @@ public class MulticastP2P {
 		 // consolePrint((java.nio.ByteOrder.nativeOrder().toString()));
 		 
 
-
+		// set hash type used and files directory
+		hashType = hash;
+		localDirectory = path;
+		
 		// Index files directory
-		try {
-			indexFiles("./files/", CHUNKSIZE); //TODO verificar se dir existe
-	 
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		indexFiles(); 
+
 		
 		// Sets udp group address
-		controlAddr = new InetSocketAddress("224.0.2.10",8967); //TODO
-		dataAddr = new InetSocketAddress("224.0.2.10",8966);
+		controlAddr = new InetSocketAddress(ip,controlPort); 
+		dataAddr = new InetSocketAddress(ip,dataPort);
 		
 		
+
 		// Lançar thread resposta
 		new Thread() {
 			public void run() {			
 				try {
 					searchReply();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					System.out.println("IOException");
+					if (!DEBUG) System.exit(-1);
 					e.printStackTrace();
 				}
 			}
@@ -264,7 +265,8 @@ public class MulticastP2P {
 						sendFile();
 					}
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
+					System.out.println("IOException");
+					if (!DEBUG) System.exit(-1);
 					e.printStackTrace();
 				}
 			}
@@ -289,7 +291,8 @@ public class MulticastP2P {
 			 Vector<byte[]> chunkResult = getChunks(fileArray.get( p2p.hasFile("boletim.html")));
 			 
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			System.out.println("IOException");
+			if (!DEBUG) System.exit(-1);
 			e.printStackTrace();
 		}
 		*/
@@ -322,6 +325,12 @@ public class MulticastP2P {
 
 	}
 
+
+	/***
+	 * Generates a search id. 
+	 * 
+	 * @return
+	 */
 	private String genSearchID(){
 
 		int number = randomGenerator.nextInt(MAXID);
@@ -349,7 +358,8 @@ public class MulticastP2P {
 		try {
 			mSocket = joinGroup(controlAddr);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			System.out.println("File not found. ");
+			if (!DEBUG) System.exit(-1);
 			e.printStackTrace();
 		}
 
@@ -364,14 +374,16 @@ public class MulticastP2P {
 			searchPacket = new DatagramPacket(
 					searchString.getBytes(), searchString.length(),controlAddr);
 		} catch (SocketException e) {
-			// TODO Auto-generated catch block
+			System.out.println("Socket error. ");
+			if (!DEBUG) System.exit(-1);
 			e.printStackTrace();
 		}
 
 		try {
 			mSocket.send(searchPacket);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			System.out.println("IOException");
+			if (!DEBUG) System.exit(-1);
 			e.printStackTrace();
 		}
 		
@@ -381,7 +393,8 @@ public class MulticastP2P {
 			try {
 				mSocket.receive(receivePacket);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				System.out.println("IOException");
+				if (!DEBUG) System.exit(-1);
 				e.printStackTrace();
 			}
 			String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
@@ -435,31 +448,46 @@ public class MulticastP2P {
 	 * @param chunkSize: default size of the chunks in Bytes.
 	 * @throws IOException 
 	 */
-	void indexFiles(String directory, int chunkSize) throws IOException
+	void indexFiles() 
 	{
-		File folder = new File(directory);
+		File folder = new File(localDirectory);
+		if (!folder.exists()) {
+			System.out.println("Path chosen does not exist." );
+			System.exit(-1);
+		}
+		
 		File[] listOfFiles = folder.listFiles();
 
+		fileArray.clear();
+		
 		for (int i = 0; i < listOfFiles.length; i++) {
 
 			if (listOfFiles[i].isFile()) {
 
 				long size = listOfFiles[i].length();
-				long numChunks = ((size-1)/chunkSize) +1;
+				long numChunks = ((size-1)/CHUNKSIZE) +1;
 				String hashString = null;
 				
 				/* compute hash values */
 				try {
 					hashString = SHACheckSum(listOfFiles[i].getAbsolutePath());
 				} catch (NoSuchAlgorithmException e) {
-					// TODO Auto-generated catch block
+					
+					System.out.println("Hash algorythm chosen does not exist. ");
+					if (!DEBUG) System.exit(-1);
 					e.printStackTrace();
+				} catch (IOException e1) {
+					System.out.println("File not found. ");
+					if (!DEBUG) System.exit(-1);
+					e1.printStackTrace();
 				}
 				
 				fileStruct newFile = new fileStruct(hashString, listOfFiles[i].getName(), size, numChunks, listOfFiles[i].getAbsolutePath());  
 				fileArray.add(newFile);  
 			} 
 		}
+		
+		consolePrint("Files indexed. ");
 	}
 	
 	/***
@@ -544,7 +572,8 @@ public class MulticastP2P {
 		try {
 			fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
 		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
+			System.out.println("Hash algorythm does not exist. ");
+			if (!DEBUG) System.exit(-1);
 			e.printStackTrace();
 		} 
 		
@@ -553,8 +582,8 @@ public class MulticastP2P {
 			byte[] fChunk =  new byte[CHUNKSIZE]; 
 			long bytes = file.read(fChunk);  
 			bytesRead += bytes;  
-
 			
+
 			/* add chunk to vector */
 			chunkVector.add(new Chunk(chunkCounter,fChunk,fileID));
 			chunkCounter++;
@@ -575,7 +604,6 @@ public class MulticastP2P {
 	
 	
 
-
 	/***
 	 * Checksum method (returns byte[] value)
 	 * 
@@ -586,7 +614,7 @@ public class MulticastP2P {
 	 */
 	public byte[] SHACheckSumBytes(String fileName) throws NoSuchAlgorithmException, IOException{
 
-		MessageDigest md = MessageDigest.getInstance("SHA-256");	 
+		MessageDigest md = MessageDigest.getInstance(hashType);	
 		FileInputStream fis = new FileInputStream(fileName);
 		
 		
@@ -670,7 +698,6 @@ public class MulticastP2P {
 									answer.getBytes(), answer.length(),controlAddr);
 							mSocket.send(answerPacket);
 							consolePrint("OUT: "+ answer);
-
 						}
 					}
 				}
@@ -883,7 +910,8 @@ public class MulticastP2P {
 				dataSocket.setSoTimeout(5000); // Makes the socket timeout after 500 ms
 				
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				System.out.println("IOException");
+				if (!DEBUG) System.exit(-1);
 				e.printStackTrace();
 			}
 			
@@ -965,7 +993,8 @@ public class MulticastP2P {
 
 				} while(!newFile.isDone());
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				System.out.println("IOException");
+				if (!DEBUG) System.exit(-1);
 				e.printStackTrace();
 			}
 			
@@ -976,7 +1005,8 @@ public class MulticastP2P {
 			try {
 				newFile.writeToDisk();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+				System.out.println("IOException");
+				if (!DEBUG) System.exit(-1);
 				e.printStackTrace();
 			}
 			
