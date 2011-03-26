@@ -787,10 +787,16 @@ public class MulticastP2P {
 		 * Sends all the chunks that were requested
 		 */
 		while(!file.chunksRequested.isEmpty()) {
-			
+			long chunkChosen;
 			int randChunk = randGenerator.nextInt(file.chunksRequested.size());
 			
-			long chunkChosen = file.chunksRequested.get(randChunk);
+			// Sometimes vector changes size and we go out of bounds
+			try{
+				chunkChosen = file.chunksRequested.get(randChunk);
+			} catch (ArrayIndexOutOfBoundsException e){
+				if(DEBUG)consolePrint("DEBUG:vector changed size");
+				continue;
+			}
 			byte[] chunk = chunkVector.get((int)chunkChosen).getBytes();
 			
 			sendPacket = new DatagramPacket(
@@ -895,8 +901,8 @@ public class MulticastP2P {
 							
 							if (DEBUG)
 								consolePrint("DEBUG: Received chunk "+ byteToLong(cNumber)+" | SHA: " + sha);
-							
-							System.out.println("Missing chunks: " + newFile.missingChunks.size());
+							else
+								consolePrint("Remaining: " + (int)(( (float)(newFile.missingChunks.size())/(float) newFile.totalChunks)*100) + " %");
 						}
 					}
 					
