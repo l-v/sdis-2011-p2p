@@ -725,7 +725,7 @@ public class MulticastP2P {
 	 * @param chunkNumbers
 	 * @throws IOException
 	 */
-	void sendChunks(final UploadingFile file) throws IOException { // TODO testing
+	void sendChunks(final UploadingFile file) throws IOException { 
 		
 		fileStruct fReq= getFileByHash(file.fileID);
 		Vector<Chunk> chunkVector= getChunks(fReq);
@@ -804,7 +804,6 @@ public class MulticastP2P {
 			
 			mSocket.send(sendPacket);
 			
-			//file.chunksRequested.remove(randChunk); // Not needed since thread that watches for repeted chunks takes care of this
 			
 			// To avoid network flood
 			try {
