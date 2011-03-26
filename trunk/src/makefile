@@ -10,7 +10,7 @@ CLASSES = \
 	fileStruct.class \
 	MulticastP2P.class \
 	UploadingFile.class \
-	Window.class
+	MP2P.class
 default: classes
 classes: $(CLASSES:.java=.class)
 clean:
