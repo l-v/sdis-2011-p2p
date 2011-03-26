@@ -1,6 +1,7 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.File;
+import java.io.Serializable;
 import java.net.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -11,8 +12,11 @@ import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 
 
-public class MulticastP2P {
+public class MulticastP2P implements Serializable{
 
+
+	private static final long serialVersionUID = 1L;
+	
 	/** Maximum value for searchID */
 	public static final int MAXID = 9999999;
 	/** Size of one chunk of data */
