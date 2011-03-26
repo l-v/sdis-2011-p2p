@@ -33,11 +33,12 @@ public class Window {
 	/**
 	 * Launch the application.
 	 */
-	public static void main(final String[] args) { //TODO see if final ok in arguments
+	public static void main(final String[] args) { 
 
 		//arguments:  -p Path -i IP -c CONTROLPORT -d DATAPORT -h HashType
 		if (args.length%2 != 0) {
 			System.out.println("Usage: MulticastP2P -p Path -i IP -c CONTROLPORT -d DATAPORT -h HashType");
+			System.exit(-1);
 		}
 
 
@@ -193,7 +194,7 @@ public class Window {
 		JLabel lblSearchResults = new JLabel("Search Results:");
 		lblSearchResults.setBounds(10, 42, 117, 14);
 		frmMulticastPp.getContentPane().add(lblSearchResults);
-		
+
 		JLabel lblConsole = new JLabel("Console:");
 		lblConsole.setBounds(10, 231, 89, 14);
 		frmMulticastPp.getContentPane().add(lblConsole);
