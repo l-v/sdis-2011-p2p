@@ -494,41 +494,44 @@ public class MulticastP2P implements Serializable{
 	private Vector<Chunk> getChunks(fileStruct fileReq) throws IOException {
 
 		Vector<Chunk> chunkVector = new Vector<Chunk>();
-	
-		FileInputStream file = new FileInputStream(fileReq.completePath);
-		long fLength = fileReq.fileSize;
-		long bytesRead = 0;
-		long chunkCounter = 0;  
-		byte[] fileID = new byte[32];
-		
-		/*
-		 * Generates the SHA for the file
-		 */
-		try {
-			fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
-		} catch (NoSuchAlgorithmException e) {
-			System.out.println("Hash algorythm does not exist. ");
-			if (!DEBUG) System.exit(-1);
-			e.printStackTrace();
-		} 
-		
-		while (bytesRead != fLength) {
-			byte[] fChunk =  new byte[CHUNKSIZE]; 
-			long bytes = file.read(fChunk);  
-			bytesRead += bytes;  
+		if(fileReq!= null){
+			FileInputStream file = new FileInputStream(fileReq.completePath);
 			
-
-			/* add chunk to vector */
-			chunkVector.add(new Chunk(chunkCounter,fChunk,fileID));
-			chunkCounter++;
-		}
-		
-		if (chunkVector.size() != fileReq.totalChunks) {
-			consolePrint("\nWarning: number of chunks generated is not the expected.");
-		}
-		
-		file.close();
-		return chunkVector;
+			long fLength = fileReq.fileSize;
+			long bytesRead = 0;
+			long chunkCounter = 0;  
+			byte[] fileID = new byte[32];
+			
+			/*
+			 * Generates the SHA for the file
+			 */
+			try {
+				fileID = SHACheckSumBytes(fileReq.completePath); //32bytes for 1st header part
+			} catch (NoSuchAlgorithmException e) {
+				System.out.println("Hash algorythm does not exist. ");
+				if (!DEBUG) System.exit(-1);
+				e.printStackTrace();
+			} 
+			
+			while (bytesRead != fLength) {
+				byte[] fChunk =  new byte[CHUNKSIZE]; 
+				long bytes = file.read(fChunk);  
+				bytesRead += bytes;  
+				
+	
+				/* add chunk to vector */
+				chunkVector.add(new Chunk(chunkCounter,fChunk,fileID));
+				chunkCounter++;
+			}
+			
+			if (chunkVector.size() != fileReq.totalChunks) {
+				consolePrint("\nWarning: number of chunks generated is not the expected.");
+			}
+			
+			file.close();
+			return chunkVector;}
+		else
+			return null;
 	}
 	
 	
@@ -733,92 +736,94 @@ public class MulticastP2P implements Serializable{
 		
 		fileStruct fReq= getFileByHash(file.fileID);
 		Vector<Chunk> chunkVector= getChunks(fReq);
-				
-		// Joins multicast group and creates socket
-		final MulticastSocket mSocket = joinGroup(dataAddr);
-		DatagramPacket sendPacket = null;
-
-		Random randGenerator = new Random();
-
-		/*
-		 *  Launch thread that verifies for repeated chunks
-		 */
-		Thread checkRepeated = new Thread()  {
-			public void run() {
-				
-				byte[] buf = new byte[CHUNKSIZE+HEADERSIZE];
-				while(!file.chunksRequested.isEmpty()) {
-					// Joins multicast group and creates socket
-					try {
-						
-						DatagramPacket cPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
-						mSocket.receive(cPacket);
-
-						byte[] chunkData = cPacket.getData();
-
-						// Gets the chunk SHA
-						byte[] chunkSha = new byte[32];
-						System.arraycopy(chunkData, 0, chunkSha, 0, 32);
-						
-						// Gets the chunk number
-						byte[] chunkNumber = new byte[8];
-						System.arraycopy(chunkData, 32, chunkNumber, 0, 8);
-						
-						long packetNumber = byteToLong(chunkNumber);
-						
-						// Converts the sha bytes to string so we can compare
-						StringBuffer sb = new StringBuffer();
-						for (int i = 0; i < 32; i++) {
-							sb.append(Integer.toString((chunkSha[i] & 0xff) + 0x100, 16).substring(1));
+		// Concurrency problems
+		if(chunkVector!=null){		
+			// Joins multicast group and creates socket
+			final MulticastSocket mSocket = joinGroup(dataAddr);
+			DatagramPacket sendPacket = null;
+	
+			Random randGenerator = new Random();
+	
+			/*
+			 *  Launch thread that verifies for repeated chunks
+			 */
+			Thread checkRepeated = new Thread()  {
+				public void run() {
+					
+					byte[] buf = new byte[CHUNKSIZE+HEADERSIZE];
+					while(!file.chunksRequested.isEmpty()) {
+						// Joins multicast group and creates socket
+						try {
+							
+							DatagramPacket cPacket = new DatagramPacket(buf,CHUNKSIZE+HEADERSIZE);
+							mSocket.receive(cPacket);
+	
+							byte[] chunkData = cPacket.getData();
+	
+							// Gets the chunk SHA
+							byte[] chunkSha = new byte[32];
+							System.arraycopy(chunkData, 0, chunkSha, 0, 32);
+							
+							// Gets the chunk number
+							byte[] chunkNumber = new byte[8];
+							System.arraycopy(chunkData, 32, chunkNumber, 0, 8);
+							
+							long packetNumber = byteToLong(chunkNumber);
+							
+							// Converts the sha bytes to string so we can compare
+							StringBuffer sb = new StringBuffer();
+							for (int i = 0; i < 32; i++) {
+								sb.append(Integer.toString((chunkSha[i] & 0xff) + 0x100, 16).substring(1));
+							}
+							String sha = sb.toString();
+							
+							if(sha.equals(file.fileID))
+								if (file.chunksRequested.contains(packetNumber)) {
+									file.chunksRequested.remove(packetNumber);
+								}				
+	
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
 						}
-						String sha = sb.toString();
-						
-						if(sha.equals(file.fileID))
-							if (file.chunksRequested.contains(packetNumber)) {
-								file.chunksRequested.remove(packetNumber);
-							}				
-
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
 					}
 				}
+			};
+			checkRepeated.start();
+			
+			/*
+			 * Sends all the chunks that were requested
+			 */
+			while(!file.chunksRequested.isEmpty()) {
+				long chunkChosen;
+				int randChunk = randGenerator.nextInt(file.chunksRequested.size());
+				
+				// Sometimes vector changes size and we go out of bounds
+				try{
+					chunkChosen = file.chunksRequested.get(randChunk);
+				} catch (ArrayIndexOutOfBoundsException e){
+					if(DEBUG)consolePrint("DEBUG:vector changed size");
+					continue;
+				}
+				byte[] chunk = chunkVector.get((int)chunkChosen).getBytes();
+				
+				sendPacket = new DatagramPacket(
+						chunk, chunk.length,dataAddr);
+				
+				mSocket.send(sendPacket);
+				
+				
+				// To avoid network flood
+				try {
+					Thread.sleep(10);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
-		};
-		checkRepeated.start();
-		
-		/*
-		 * Sends all the chunks that were requested
-		 */
-		while(!file.chunksRequested.isEmpty()) {
-			long chunkChosen;
-			int randChunk = randGenerator.nextInt(file.chunksRequested.size());
-			
-			// Sometimes vector changes size and we go out of bounds
-			try{
-				chunkChosen = file.chunksRequested.get(randChunk);
-			} catch (ArrayIndexOutOfBoundsException e){
-				if(DEBUG)consolePrint("DEBUG:vector changed size");
-				continue;
-			}
-			byte[] chunk = chunkVector.get((int)chunkChosen).getBytes();
-			
-			sendPacket = new DatagramPacket(
-					chunk, chunk.length,dataAddr);
-			
-			mSocket.send(sendPacket);
-			
-			
-			// To avoid network flood
-			try {
-				Thread.sleep(10);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			// All sent, removes the file from currentUploads
+			currentUploads.remove(file);
 		}
-		// All sent, removes the file from currentUploads
-		currentUploads.remove(file);
 		
 			
 	}
