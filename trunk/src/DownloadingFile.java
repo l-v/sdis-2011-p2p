@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.IOException;
 import java.io.FileOutputStream;
 import java.util.*;
@@ -43,9 +44,17 @@ public class DownloadingFile {
 	 * @param chunksData
 	 * @throws IOException
 	 */
-	void writeToDisk() throws IOException {
+	void writeToDisk(String directory) throws IOException {
 
-		FileOutputStream outFile =  new FileOutputStream( filename );  
+		File f = new File(directory + "/" + filename);
+		FileOutputStream outFile;
+		
+		if(f.exists()){
+			outFile =  new FileOutputStream( directory + "/-Downloaded-" + filename );
+		}
+		else{
+			outFile =  new FileOutputStream( directory + "/" + filename );
+		}
 		
 		// appends all data bytes and writes to output file
 		for (int i =0 ; i < totalChunks; i++) {

@@ -1,24 +1,17 @@
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
-import javax.swing.JTextPane;
-import java.awt.BorderLayout;
 
-import javax.swing.DefaultListModel;
+
+
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JButton;
-import javax.swing.AbstractAction;
 import java.awt.event.ActionEvent;
-import javax.swing.Action;
 import javax.swing.JTextArea;
 import java.awt.event.ActionListener;
-import java.io.IOException;
-import java.net.InetSocketAddress;
 import javax.swing.JList;
 import javax.swing.ListSelectionModel;
-import javax.swing.AbstractListModel;
-import java.awt.ScrollPane;
 import javax.swing.JLabel;
 
 public class Window {
@@ -157,7 +150,13 @@ public class Window {
 				btnGet.setEnabled(true);
 				new Thread() {
 					public void run() {
-							p2p.search(textFieldSearch.getText());
+							String searchStr = textFieldSearch.getText();
+							if(!searchStr.trim().isEmpty() && searchStr!=null){ // Check if string exists
+								p2p.search(textFieldSearch.getText());
+								p2p.consolePrint("Searching for: " + searchStr);
+							}
+							else
+								p2p.consolePrint("Blank Search!");
 							
 					}
 				}.start(); // Starts a thread that does a search
