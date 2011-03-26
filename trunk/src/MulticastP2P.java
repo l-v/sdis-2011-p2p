@@ -375,7 +375,16 @@ public class MulticastP2P {
 		File folder = new File(localDirectory);
 		if (!folder.exists()) {
 			System.out.println("Path chosen does not exist." );
-			System.exit(-1);
+		    
+			// Creates the directory
+		    boolean success = (new File(localDirectory)).mkdir();
+		    if (success) {
+		      System.out.println("Directory: " + localDirectory + " created");
+		    }
+		    else{
+		    	System.out.println("ERROR: Could not create new directory. Exiting." );
+		    	System.exit(-1);
+		    }
 		}
 		
 		File[] listOfFiles = folder.listFiles();
