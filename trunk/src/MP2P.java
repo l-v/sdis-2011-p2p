@@ -14,7 +14,7 @@ import javax.swing.JList;
 import javax.swing.ListSelectionModel;
 import javax.swing.JLabel;
 
-public class Window {
+public class MP2P {
 
 	private JFrame frmMulticastPp;
 	private JTextField textFieldSearch;
@@ -73,7 +73,7 @@ public class Window {
 			public void run() {
 				try {
 
-					Window window = new Window();
+					MP2P window = new MP2P();
 					window.frmMulticastPp.setVisible(true);					
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -86,7 +86,7 @@ public class Window {
 	/**
 	 * Create the application.
 	 */
-	public Window() {
+	public MP2P() {
 		p2p = new MulticastP2P();
 		p2p.start(path, ip, controlPort, dataPort, hash);
 		initialize();
