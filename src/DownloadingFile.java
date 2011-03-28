@@ -21,7 +21,7 @@ public class DownloadingFile {
 	long requestedChunks; // Saves the size of the last batch of chunks requested.
 	long timeLastAdded; // Time last added chunk;
 	
-	public DownloadingFile(long totalChunks/*,byte[] sha*/, String filename, String shaStr, long filesize){
+	public DownloadingFile(long totalChunks, String filename, String shaStr, long filesize){
 		
 		chunks = new Vector<Chunk>();
 		missingChunks = new Vector<Long>();
@@ -70,11 +70,15 @@ public class DownloadingFile {
 		outFile.close();
 	};
 	
-	Chunk getChunk(long chunkNumber){
-		// TODO
-		return null;
-	};
 	
+	/**
+	 * Adds a new chunk, updating information about the received and missing chunks . 
+	 * 
+	 * @param chunkNumber
+	 * @param data
+	 * @param hashCheck
+	 * @return
+	 */
 	boolean addChunk(long chunkNumber, byte[] data, byte[] hashCheck){
 		if (hasChunk(chunkNumber))
 			return false;
@@ -87,6 +91,12 @@ public class DownloadingFile {
 		}
 	};
 	
+	
+	/**
+	 * Checks whether the file has been completely downloaded or not.
+	 * 
+	 * @return
+	 */
 	boolean isDone(){
 		if (missingChunks.isEmpty())
 			return true;
