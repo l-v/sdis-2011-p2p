@@ -838,7 +838,7 @@ public class MulticastP2P implements Serializable{
 			String getStr = null;
 			
 			consolePrint("Started download: " + sr.filename);
-			DownloadingFile newFile = new DownloadingFile(chunks,sr.filename,sr.sha); // creates the structure to save the downloading file
+			DownloadingFile newFile = new DownloadingFile(chunks,sr.filename,sr.sha,sr.filesize); // creates the structure to save the downloading file
 			MulticastSocket dataSocket = null;
 			MulticastSocket mSocket = null;
 			DatagramPacket getPacket = null;
