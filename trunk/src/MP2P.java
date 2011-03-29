@@ -191,8 +191,8 @@ public class MP2P {
 		scrollPaneConsole.setBounds(10, 250, 627, 132);
 		frmMulticastPp.getContentPane().add(scrollPaneConsole);
 		
-		JLabel lblSearchResults = new JLabel("Search Results:");
-		lblSearchResults.setBounds(10, 42, 117, 14);
+		JLabel lblSearchResults = new JLabel("Search Results: <Name> | <Size> | <Peers> | <SHA>");
+		lblSearchResults.setBounds(10, 42, 300, 14);
 		frmMulticastPp.getContentPane().add(lblSearchResults);
 
 		JLabel lblConsole = new JLabel("Console:");
