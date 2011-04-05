@@ -450,18 +450,24 @@ public class MulticastP2P implements Serializable{
 	 * @return 
 	 */
 	static byte[] longToByte(long number) {
-        byte[] byteValue =  {
-        		(byte)(number >>> 56),
-        		(byte)(number >>> 48),
-        		(byte)(number >>> 40),
-        		(byte)(number >>> 32),
-                (byte)(number >>> 24),
-                (byte)(number >>> 16),
-                (byte)(number >>> 8),
-                (byte)number};
-        
-        return byteValue;
+//        byte[] byteValue =  {
+//        		(byte)(number >>> 56),
+//        		(byte)(number >>> 48),
+//        		(byte)(number >>> 40),
+//        		(byte)(number >>> 32),
+//                (byte)(number >>> 24),
+//                (byte)(number >>> 16),
+//                (byte)(number >>> 8),
+//                (byte)number};
+//        
+//        return byteValue;
+		byte [] b = new byte[8];  
+		for(int i= 0; i < 8; i++){  
+		   b[i] = (byte)(number >>> (i * 8));  
+		}
+		return b;
 	}
+		
 	
 	/***
 	 * Converts byte[] values to integer. 
@@ -470,16 +476,24 @@ public class MulticastP2P implements Serializable{
 	 * @return 
 	 */
 	private long byteToLong(byte[] byteValue) {
-		long number = ((byteValue[0]& 0xFF) << 56)
-						+ ((byteValue[1]& 0xFF) << 48)
-						+ ((byteValue[2]& 0xFF) << 40)
-						+ ((byteValue[3]& 0xFF) << 32)
-						+ ((byteValue[4]& 0xFF) << 24)
-						+ ((byteValue[5] & 0xFF) << 16) 
-						+ ((byteValue[6] & 0xFF) << 8) 
-						+ (byteValue[7] & 0xFF);
+//		long number = ((byteValue[0]& 0xFF) << 56)
+//						+ ((byteValue[1]& 0xFF) << 48)
+//						+ ((byteValue[2]& 0xFF) << 40)
+//						+ ((byteValue[3]& 0xFF) << 32)
+//						+ ((byteValue[4]& 0xFF) << 24)
+//						+ ((byteValue[5] & 0xFF) << 16) 
+//						+ ((byteValue[6] & 0xFF) << 8) 
+//						+ (byteValue[7] & 0xFF);
+//		
+//		return number;
 		
-		return number;
+		long value = 0;
+		for (int i = 0; i < byteValue.length; i++)
+		{
+		   value += (byteValue[i] & 0xff) << (8 * i);
+		}
+		return value;
+
 	}
 
 
@@ -661,7 +675,7 @@ public class MulticastP2P implements Serializable{
 				
 				// get chunk numbers
 				String chunks = st.nextToken();
-				if(DEBUG)consolePrint("chunks requested: " + chunks);
+				if(DEBUG)consolePrint("REQUEST: " + chunks + " | HASH:" + fileID);
 				 
 
 				/*  Converts chunks to string
@@ -896,6 +910,8 @@ public class MulticastP2P implements Serializable{
 							byte[] cNumber = new byte[8];
 							System.arraycopy(receivedData, 32, cNumber, 0, 8);
 							
+							
+							
 							// Gets the hashCheck
 							byte[] cHashCheck = new byte[24];
 							System.arraycopy(receivedData, 40, cHashCheck, 0, 24);
@@ -904,8 +920,11 @@ public class MulticastP2P implements Serializable{
 							//Gets the data
 							byte[] cData = new byte[CHUNKSIZE];
 							System.arraycopy(receivedData, 64, cData, 0, CHUNKSIZE);
-							
-							newFile.addChunk(byteToLong(cNumber), cData, cHashCheck );
+							if(DEBUG)
+								System.out.println("RECEIVED CHUNK " + sha + " | NUMBER " + byteToLong(cNumber));
+							if(!newFile.addChunk(byteToLong(cNumber), cData, cHashCheck ))
+								if(DEBUG)
+									System.out.println("DID NOT SAVE CHUNK");
 							
 							if (DEBUG)
 								consolePrint("DEBUG: Received chunk "+ byteToLong(cNumber)+" | SHA: " + sha);
