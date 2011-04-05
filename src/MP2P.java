@@ -139,7 +139,7 @@ public class MP2P {
 		btnGet.setBounds(489, 216, 148, 23);
 		frmMulticastPp.getContentPane().add(btnGet);
 		
-		JTextArea textAreaConsole = p2p.console;
+		final JTextArea textAreaConsole = p2p.console;
 		textAreaConsole.setBounds(10, 11, 627, 130);
 		frmMulticastPp.getContentPane().add(textAreaConsole);
 		
@@ -149,18 +149,18 @@ public class MP2P {
 		btnSearch.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				btnGet.setEnabled(true);
-				new Thread() {
+				 String searchStr = textFieldSearch.getText();
+                                 if(!searchStr.trim().isEmpty() && searchStr!=null){ // Check if string exists
+                                    textAreaConsole.append("Searching for: " + searchStr + "\n");
+				   new Thread() {
 					public void run() {
-							String searchStr = textFieldSearch.getText();
-							if(!searchStr.trim().isEmpty() && searchStr!=null){ // Check if string exists
-								p2p.search(textFieldSearch.getText());
-								p2p.consolePrint("Searching for: " + searchStr);
-							}
-							else
-								p2p.consolePrint("Blank Search!");
-							
-					}
-				}.start(); // Starts a thread that does a search
+                                        p2p.search(textFieldSearch.getText());
+                                    }
+                                    }.start(); // Starts a thread that does a search
+
+                                 }
+                                 else
+                                    p2p.consolePrint("Blank Search!");
 			}
 		});
 		btnSearch.setBounds(325, 10, 89, 23);
@@ -192,7 +192,7 @@ public class MP2P {
 		frmMulticastPp.getContentPane().add(scrollPaneConsole);
 		
 		JLabel lblSearchResults = new JLabel("Search Results: <Name> | <Size> | <Peers> | <SHA>");
-		lblSearchResults.setBounds(10, 42, 300, 14);
+		lblSearchResults.setBounds(10, 42, 400, 14);
 		frmMulticastPp.getContentPane().add(lblSearchResults);
 
 		JLabel lblConsole = new JLabel("Console:");
